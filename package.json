@@ -1,6 +1,6 @@
 {
   "name": "mind-hiro",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Generate a self-contained interactive mind-map website from Markdown files",
   "type": "module",
   "main": "./dist-lib/src/index.js",
