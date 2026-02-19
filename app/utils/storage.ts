@@ -29,6 +29,10 @@ export function loadEdit(filename: string): string | null {
   return localStorage.getItem(EDIT_PREFIX + filename)
 }
 
+export function clearEdit(filename: string): void {
+  localStorage.removeItem(EDIT_PREFIX + filename)
+}
+
 export function saveTheme(theme: 'dark' | 'light'): void {
   localStorage.setItem(THEME_KEY, theme)
 }

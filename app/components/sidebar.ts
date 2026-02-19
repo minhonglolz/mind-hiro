@@ -1,12 +1,20 @@
 import { bus, state } from '../state'
-import { saveLocalFiles, loadLocalFiles } from '../utils/storage'
+import { saveLocalFiles, loadLocalFiles, clearEdit } from '../utils/storage'
 import type { MindMapFile } from '../../shared/types'
 
 // In-memory list of user-added local files (persisted to localStorage)
 let localFiles: MindMapFile[] = loadLocalFiles()
 
+// Sliding pill element — created once, re-inserted on each render
+let pill: HTMLDivElement
+let pillReady = false
+
 export function initSidebar(): void {
   const list = document.getElementById('file-list')!
+
+  pill = document.createElement('div')
+  pill.id = 'sidebar-pill'
+  list.prepend(pill)
   const uploadBtn = document.getElementById('upload-btn')!
   const newFileBtn = document.getElementById('new-file-btn')!
   const fileInput = document.getElementById('file-upload-input') as HTMLInputElement
@@ -63,6 +71,23 @@ function addLocalFile(file: MindMapFile): void {
   bus.emit('file:select', file)
 }
 
+function deleteLocalFile(name: string): void {
+  localFiles = localFiles.filter((f) => f.name !== name)
+  state.files = state.files.filter((f) => f.name !== name)
+  saveLocalFiles(localFiles)
+  clearEdit(name)
+
+  // If the deleted file was active, select the first remaining file
+  if (state.currentFile?.name === name) {
+    const next = state.files[0] ?? null
+    state.currentFile = next
+    if (next) bus.emit('file:select', next)
+  }
+
+  const list = document.getElementById('file-list')!
+  renderFiles(list, state.files, state.searchQuery)
+}
+
 function uniqueName(base: string): string {
   const existing = new Set(state.files.map((f) => f.name))
   if (!existing.has(base)) return base
@@ -111,6 +136,8 @@ function showNewFileInput(list: HTMLElement): void {
 }
 
 function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): void {
+  const localNames = new Set(localFiles.map((f) => f.name))
+
   // Keep any active new-file input while re-rendering
   const existingInput = list.querySelector('.new-file-row')
 
@@ -126,8 +153,11 @@ function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): vo
 
   list.innerHTML = ''
 
-  // Re-insert the input at the top if it was open
-  if (existingInput) list.appendChild(existingInput)
+  // Re-insert pill (must stay in the list; sits behind items via z-index)
+  list.prepend(pill)
+
+  // Re-insert the new-file input at the top if it was open
+  if (existingInput) list.insertBefore(existingInput, pill.nextSibling)
 
   if (filtered.length === 0) {
     const empty = document.createElement('li')
@@ -148,12 +178,60 @@ function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): vo
 
     li.innerHTML = `<span class="file-icon">📄</span><span class="file-name">${escapeHtml(file.name)}</span>`
 
+    if (localNames.has(file.name)) {
+      const btn = document.createElement('button')
+      btn.className = 'delete-btn'
+      btn.title = 'Delete file'
+      btn.innerHTML = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3.5h10M5 3.5V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M11 3.5l-.7 7.5H3.7L3 3.5"/>
+      </svg>`
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        deleteLocalFile(file.name)
+      })
+      li.appendChild(btn)
+    }
+
     li.addEventListener('click', () => {
       state.currentFile = file
       bus.emit('file:select', file)
     })
 
     list.appendChild(li)
+  }
+
+  updatePill(list)
+}
+
+function updatePill(list: HTMLElement): void {
+  const activeItem = list.querySelector<HTMLElement>('.file-item.active')
+
+  if (!activeItem) {
+    pill.style.opacity = '0'
+    pillReady = false
+    return
+  }
+
+  const { offsetTop, offsetLeft, offsetWidth, offsetHeight } = activeItem
+
+  if (!pillReady) {
+    // First appearance: snap into place with no animation
+    pill.style.transition = 'none'
+    pill.style.top    = `${offsetTop}px`
+    pill.style.left   = `${offsetLeft}px`
+    pill.style.width  = `${offsetWidth}px`
+    pill.style.height = `${offsetHeight}px`
+    pill.style.opacity = '1'
+    requestAnimationFrame(() => {
+      pill.style.transition = ''
+      pillReady = true
+    })
+  } else {
+    pill.style.top    = `${offsetTop}px`
+    pill.style.left   = `${offsetLeft}px`
+    pill.style.width  = `${offsetWidth}px`
+    pill.style.height = `${offsetHeight}px`
+    pill.style.opacity = '1'
   }
 }
 
