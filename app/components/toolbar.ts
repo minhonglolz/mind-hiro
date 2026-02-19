@@ -1,12 +1,14 @@
 import { bus, state } from '../state'
 import { saveTheme } from '../utils/storage'
 import { buildShareURL } from '../utils/share'
+import { GUIDE_FILE } from '../main'
 
 export function initToolbar(): void {
   const searchInput = document.getElementById('search-input') as HTMLInputElement
   const themeBtn = document.getElementById('theme-btn') as HTMLButtonElement
   const shareBtn = document.getElementById('share-btn') as HTMLButtonElement
   const toggleEditorBtn = document.getElementById('toggle-editor-btn') as HTMLButtonElement
+  const guideBtn = document.getElementById('guide-btn') as HTMLButtonElement
 
   // Search
   searchInput.addEventListener('input', () => {
@@ -41,16 +43,22 @@ export function initToolbar(): void {
     )
   })
 
-  // Editor toggle — editor component handles the actual panel visibility
+  // Editor toggle
   toggleEditorBtn.addEventListener('click', () => {
     bus.emit('editor:toggle')
   })
 
   bus.on('editor:toggle', () => {
-    // Update button opacity to reflect new state (editor component toggles state.isEditorVisible first)
     setTimeout(() => {
       toggleEditorBtn.style.opacity = state.isEditorVisible ? '1' : '0.5'
     }, 0)
+  })
+
+  // Guide button — jump to 使用指南
+  guideBtn?.addEventListener('click', () => {
+    const guide = state.files.find((f) => f.name === GUIDE_FILE.name) ?? GUIDE_FILE
+    state.currentFile = guide
+    bus.emit('file:select', guide)
   })
 }
 

@@ -10,7 +10,7 @@
 
     <!-- Toolbar — frosted glass navigation bar -->
     <header id="toolbar">
-      <span class="logo">🗺 Mind <span class="logo-accent">Hiro</span></span>
+      <span class="logo">Mind<span class="logo-accent">Hiro</span></span>
 
       <div class="search-wrap">
         <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
@@ -28,9 +28,10 @@
 
       <div style="flex:1"></div>
 
+      <button id="guide-btn" class="toolbar-btn" title="使用指南">使用指南</button>
       <button id="toggle-editor-btn" class="toolbar-btn" title="Toggle editor">Editor</button>
-      <button id="theme-btn" class="toolbar-btn" title="Toggle theme">🌙</button>
       <button id="share-btn" class="toolbar-btn" title="Share current file">Share</button>
+      <button id="theme-btn" class="toolbar-btn" title="Toggle theme">🌙</button>
     </header>
 
     <!-- Three-panel layout -->
@@ -38,8 +39,16 @@
 
       <!-- Sidebar -->
       <aside id="sidebar">
-        <div class="sidebar-header">Files</div>
+        <div class="sidebar-header">
+          <span>Files</span>
+          <div class="sidebar-header-actions">
+            <button id="upload-btn" class="sidebar-icon-btn" title="Upload .md file">↑</button>
+            <button id="new-file-btn" class="sidebar-icon-btn" title="New file">+</button>
+          </div>
+        </div>
         <ul id="file-list"></ul>
+        <!-- Hidden file input for upload -->
+        <input id="file-upload-input" type="file" accept=".md" multiple style="display:none" />
       </aside>
 
       <!-- Editor panel -->
@@ -51,6 +60,9 @@
         ></textarea>
         <div id="editor-stats">Lines: 0 &nbsp;&nbsp; Words: 0 &nbsp;&nbsp; Chars: 0</div>
       </section>
+
+      <!-- Drag handle between editor and mindmap -->
+      <div id="resize-handle" title="Drag to resize"></div>
 
       <!-- Mindmap panel -->
       <section id="mindmap-panel">
@@ -66,7 +78,10 @@
       <div id="cmd-modal">
 
         <div id="cmd-search-wrap">
-          <span class="cmd-search-icon">⌕</span>
+          <svg class="cmd-search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <circle cx="6.5" cy="6.5" r="4"/>
+            <path d="m10 10 3 3"/>
+          </svg>
           <input
             id="cmd-input"
             type="text"

@@ -1,5 +1,21 @@
 const EDIT_PREFIX = 'mind-hiro:edit:'
 const THEME_KEY = 'mind-hiro:theme'
+const LOCAL_FILES_KEY = 'mind-hiro:local-files'
+
+export interface StoredFile { name: string; content: string }
+
+export function saveLocalFiles(files: StoredFile[]): void {
+  try {
+    localStorage.setItem(LOCAL_FILES_KEY, JSON.stringify(files))
+  } catch { /* quota exceeded */ }
+}
+
+export function loadLocalFiles(): StoredFile[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_FILES_KEY)
+    return raw ? (JSON.parse(raw) as StoredFile[]) : []
+  } catch { return [] }
+}
 
 export function saveEdit(filename: string, content: string): void {
   try {

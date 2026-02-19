@@ -243,7 +243,10 @@ body {
 }
 
 .sidebar-header {
-  padding: 10px 14px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px 14px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.055em;
@@ -252,6 +255,34 @@ body {
   border-bottom: 0.5px solid var(--sep);
   flex-shrink: 0;
   user-select: none;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sidebar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--label-3);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+  line-height: 1;
+}
+
+.sidebar-icon-btn:hover {
+  color: var(--label);
+  background: var(--fill-strong);
 }
 
 #file-list {
@@ -333,6 +364,27 @@ body {
   user-select: none;
 }
 
+/* Inline new-file input row */
+.new-file-row {
+  background: var(--hiro-soft);
+}
+
+.new-file-input {
+  flex: 1;
+  font-size: 13px;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--label);
+  min-width: 0;
+  padding: 0;
+}
+
+.new-file-input::placeholder {
+  color: var(--label-3);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    Editor panel
    ───────────────────────────────────────────────────────────────────────── */
@@ -340,7 +392,6 @@ body {
 #editor-panel {
   width: 280px;
   flex-shrink: 0;
-  border-right: 0.5px solid var(--sep);
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -373,6 +424,23 @@ body {
   flex-shrink: 0;
   user-select: none;
   font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Resize handle
+   ───────────────────────────────────────────────────────────────────────── */
+
+#resize-handle {
+  width: 3px;
+  flex-shrink: 0;
+  background: rgba(237, 100, 36, 0.35);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+#resize-handle:hover,
+#resize-handle:active {
+  background: var(--hiro);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -412,6 +480,20 @@ body {
 
 #mindmap-svg .markmap-node circle {
   cursor: pointer;
+}
+
+/* ── Dark mode: markmap renders inside SVG foreignObjects + text elements.
+      Force light text so it's readable on the dark canvas.            ── */
+.dark #mindmap-panel svg foreignObject {
+  color: var(--label) !important;
+}
+
+.dark #mindmap-panel svg text {
+  fill: var(--label) !important;
+}
+
+.dark #mindmap-panel svg .markmap-link {
+  stroke: rgba(235, 235, 245, 0.45) !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -479,10 +561,10 @@ body {
 }
 
 .cmd-search-icon {
-  font-size: 17px;
+  width: 16px;
+  height: 16px;
   color: var(--label-3);
   flex-shrink: 0;
-  line-height: 1;
   user-select: none;
 }
 

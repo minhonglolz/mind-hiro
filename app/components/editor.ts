@@ -39,7 +39,43 @@ export function initEditor(): void {
   bus.on('editor:toggle', () => {
     state.isEditorVisible = !state.isEditorVisible
     const panel = document.getElementById('editor-panel')!
+    const handle = document.getElementById('resize-handle')!
     panel.style.display = state.isEditorVisible ? 'flex' : 'none'
+    handle.style.display = state.isEditorVisible ? 'block' : 'none'
+  })
+
+  // Resize handle — drag to adjust editor width
+  initResizeHandle()
+}
+
+function initResizeHandle(): void {
+  const handle = document.getElementById('resize-handle')!
+  const panel  = document.getElementById('editor-panel')!
+
+  let dragging = false
+  let startX = 0
+  let startWidth = 0
+
+  handle.addEventListener('mousedown', (e) => {
+    dragging   = true
+    startX     = e.clientX
+    startWidth = panel.offsetWidth
+    document.body.style.cursor     = 'col-resize'
+    document.body.style.userSelect = 'none'
+    e.preventDefault()
+  })
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return
+    const width = Math.max(160, Math.min(640, startWidth + (e.clientX - startX)))
+    panel.style.width = `${width}px`
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return
+    dragging = false
+    document.body.style.cursor     = ''
+    document.body.style.userSelect = ''
   })
 }
 
