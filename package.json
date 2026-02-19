@@ -1,0 +1,53 @@
+{
+  "name": "mind-hiro",
+  "version": "0.2.0",
+  "description": "Generate a self-contained interactive mind-map website from Markdown files",
+  "type": "module",
+  "main": "./dist-lib/src/index.js",
+  "bin": {
+    "mind-hiro": "dist-lib/src/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist-lib/src/index.js"
+    }
+  },
+  "files": [
+    "dist-lib",
+    "template"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build:app": "vite build",
+    "build:lib": "tsc -p tsconfig.node.json",
+    "build": "npm run build:app && npm run build:lib",
+    "prepublishOnly": "npm run build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
+  },
+  "keywords": [
+    "mindmap",
+    "markdown",
+    "markmap",
+    "visualization",
+    "cli",
+    "static-site"
+  ],
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "autoprefixer": "^10.4.19",
+    "lz-string": "^1.5.0",
+    "markmap-lib": "^0.18.12",
+    "markmap-view": "^0.18.12",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vite-plugin-singlefile": "^2.0.0"
+  }
+}

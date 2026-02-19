@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mind Hiro</title>
+    <script id="__MIND_HIRO_DATA__" type="application/json">[]</script>
+  </head>
+  <body>
+
+    <!-- Toolbar — frosted glass navigation bar -->
+    <header id="toolbar">
+      <span class="logo">🗺 Mind <span class="logo-accent">Hiro</span></span>
+
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="6.5" cy="6.5" r="4"/>
+          <path d="m10 10 3 3"/>
+        </svg>
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Search"
+          autocomplete="off"
+        />
+        <button id="cmd-k-btn" title="Command palette (⌘K)">⌘K</button>
+      </div>
+
+      <div style="flex:1"></div>
+
+      <button id="toggle-editor-btn" class="toolbar-btn" title="Toggle editor">Editor</button>
+      <button id="theme-btn" class="toolbar-btn" title="Toggle theme">🌙</button>
+      <button id="share-btn" class="toolbar-btn" title="Share current file">Share</button>
+    </header>
+
+    <!-- Three-panel layout -->
+    <div id="main-layout">
+
+      <!-- Sidebar -->
+      <aside id="sidebar">
+        <div class="sidebar-header">Files</div>
+        <ul id="file-list"></ul>
+      </aside>
+
+      <!-- Editor panel -->
+      <section id="editor-panel">
+        <textarea
+          id="editor"
+          placeholder="Select a file to edit…"
+          spellcheck="false"
+        ></textarea>
+        <div id="editor-stats">Lines: 0 &nbsp;&nbsp; Words: 0 &nbsp;&nbsp; Chars: 0</div>
+      </section>
+
+      <!-- Mindmap panel -->
+      <section id="mindmap-panel">
+        <svg id="mindmap-svg"></svg>
+        <div id="mindmap-placeholder">Select a file to view its mind map</div>
+      </section>
+
+    </div>
+
+    <!-- Command palette — Spotlight-style overlay -->
+    <div id="cmd-overlay" class="hidden">
+      <div id="cmd-backdrop"></div>
+      <div id="cmd-modal">
+
+        <div id="cmd-search-wrap">
+          <span class="cmd-search-icon">⌕</span>
+          <input
+            id="cmd-input"
+            type="text"
+            placeholder="Search or type a command…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <kbd id="cmd-esc-badge">esc</kbd>
+        </div>
+
+        <ul id="cmd-results"></ul>
+
+        <div id="cmd-footer">
+          <span class="cmd-hint"><kbd>↑↓</kbd> Navigate</span>
+          <span class="cmd-hint"><kbd>↵</kbd> Select</span>
+          <span class="cmd-hint"><kbd>esc</kbd> Close</span>
+        </div>
+
+      </div>
+    </div>
+
+    <script type="module" src="/app/main.ts"></script>
+  </body>
+</html>

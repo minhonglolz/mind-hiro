@@ -1,0 +1,647 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Apple Design System — Semantic Tokens
+   Mirrors Apple HIG system colours for light + dark modes
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Surfaces */
+  --bg:               #ffffff;
+  --bg-secondary:     #f5f5f7;
+  --bg-tertiary:      #e8e8ed;
+  --bg-glass:         rgba(255, 255, 255, 0.72);
+
+  /* Labels */
+  --label:            #1d1d1f;
+  --label-2:          rgba(29, 29, 31, 0.56);
+  --label-3:          rgba(29, 29, 31, 0.32);
+
+  /* Separators */
+  --sep:              rgba(0, 0, 0, 0.08);
+  --sep-strong:       rgba(0, 0, 0, 0.14);
+
+  /* Fills (hover / active states) */
+  --fill:             rgba(0, 0, 0, 0.04);
+  --fill-strong:      rgba(0, 0, 0, 0.08);
+
+  /* Shadows */
+  --shadow-sm:        0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-overlay:   0 32px 64px rgba(0,0,0,.20), 0 8px 24px rgba(0,0,0,.10), 0 0 0 0.5px rgba(0,0,0,.05);
+
+  /* Brand */
+  --hiro:             #ed6424;
+  --hiro-soft:        rgba(237, 100, 36, 0.10);
+  --hiro-text:        #ffffff;
+}
+
+.dark {
+  /* Surfaces */
+  --bg:               #000000;
+  --bg-secondary:     #1c1c1e;
+  --bg-tertiary:      #2c2c2e;
+  --bg-glass:         rgba(28, 28, 30, 0.72);
+
+  /* Labels */
+  --label:            #f5f5f7;
+  --label-2:          rgba(235, 235, 245, 0.60);
+  --label-3:          rgba(235, 235, 245, 0.30);
+
+  /* Separators */
+  --sep:              rgba(255, 255, 255, 0.08);
+  --sep-strong:       rgba(255, 255, 255, 0.14);
+
+  /* Fills */
+  --fill:             rgba(255, 255, 255, 0.05);
+  --fill-strong:      rgba(255, 255, 255, 0.09);
+
+  /* Shadows */
+  --shadow-overlay:   0 32px 64px rgba(0,0,0,.65), 0 8px 24px rgba(0,0,0,.40), 0 0 0 0.5px rgba(255,255,255,.05);
+
+  /* Brand */
+  --hiro-soft:        rgba(237, 100, 36, 0.14);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────────────────────── */
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--label);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+               'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Toolbar — frosted glass navigation bar (Apple.com / macOS style)
+   ───────────────────────────────────────────────────────────────────────── */
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  background: var(--bg-glass);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--sep);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: 48px;
+}
+
+/* Logo */
+.logo {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: var(--label);
+  white-space: nowrap;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.logo-accent {
+  color: var(--hiro);
+}
+
+/* Search field */
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 240px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 8px;
+  width: 13px;
+  height: 13px;
+  color: var(--label-3);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+#search-input {
+  width: 100%;
+  padding: 5px 50px 5px 28px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg-secondary);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--label);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  -webkit-appearance: none;
+}
+
+#search-input::placeholder {
+  color: var(--label-3);
+}
+
+#search-input:focus {
+  background: var(--bg);
+  border-color: var(--hiro);
+  box-shadow: 0 0 0 3px var(--hiro-soft);
+}
+
+/* ⌘K badge inside search */
+#cmd-k-btn {
+  position: absolute;
+  right: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  letter-spacing: 0;
+  line-height: 1.5;
+  border-radius: 5px;
+  border: 0.5px solid var(--sep-strong);
+  background: var(--bg);
+  color: var(--label-2);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+#cmd-k-btn:hover {
+  color: var(--hiro);
+  border-color: var(--hiro);
+  background: var(--hiro-soft);
+}
+
+/* Toolbar action buttons — Apple nav text-link style */
+.toolbar-btn {
+  padding: 5px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 400;
+  color: var(--label-2);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+  white-space: nowrap;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.toolbar-btn:hover {
+  color: var(--label);
+  background: var(--fill);
+}
+
+.toolbar-btn:active {
+  background: var(--fill-strong);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Main layout — three-panel
+   ───────────────────────────────────────────────────────────────────────── */
+
+#main-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Sidebar — macOS Files app aesthetic
+   ───────────────────────────────────────────────────────────────────────── */
+
+#sidebar {
+  width: 196px;
+  flex-shrink: 0;
+  border-right: 0.5px solid var(--sep);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 10px 14px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--label-3);
+  border-bottom: 0.5px solid var(--sep);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+#file-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px;
+  list-style: none;
+  margin: 0;
+}
+
+#file-list::-webkit-scrollbar {
+  width: 3px;
+}
+#file-list::-webkit-scrollbar-track { background: transparent; }
+#file-list::-webkit-scrollbar-thumb {
+  background: var(--sep-strong);
+  border-radius: 2px;
+}
+
+/* File items */
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  font-size: 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--label);
+  margin-bottom: 1px;
+  line-height: 1.35;
+  user-select: none;
+}
+
+.file-item:hover {
+  background: var(--fill);
+}
+
+.file-item .file-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  opacity: 0.45;
+  line-height: 1;
+}
+
+.file-item .file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Active state: solid orange pill — macOS Finder style */
+.file-item.active {
+  background: var(--hiro);
+  color: #ffffff;
+}
+
+.file-item.active .file-icon {
+  opacity: 0.75;
+}
+
+/* Match state: tinted text only */
+.file-item.match {
+  color: var(--hiro);
+}
+
+.file-item.match .file-icon {
+  opacity: 0.6;
+}
+
+/* Empty list */
+.file-list-empty {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--label-3);
+  user-select: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Editor panel
+   ───────────────────────────────────────────────────────────────────────── */
+
+#editor-panel {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 0.5px solid var(--sep);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+#editor {
+  flex: 1;
+  resize: none;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.65;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+  background: var(--bg);
+  color: var(--label);
+  border: none;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+#editor::placeholder {
+  color: var(--label-3);
+}
+
+#editor-stats {
+  padding: 5px 16px;
+  font-size: 11px;
+  color: var(--label-3);
+  border-top: 0.5px solid var(--sep);
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Mindmap panel
+   ───────────────────────────────────────────────────────────────────────── */
+
+#mindmap-panel {
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg);
+  position: relative;
+}
+
+#mindmap-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#mindmap-panel svg {
+  width: 100%;
+  height: 100%;
+}
+
+#mindmap-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--label-3);
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 0.01em;
+}
+
+#mindmap-svg .markmap-node circle {
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Command palette — Spotlight-inspired
+   ───────────────────────────────────────────────────────────────────────── */
+
+#cmd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 68px;
+  animation: overlay-in 0.14s ease-out;
+}
+
+#cmd-overlay.hidden {
+  display: none;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+#cmd-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+#cmd-modal {
+  position: relative;
+  width: calc(100% - 48px);
+  max-width: 580px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: saturate(200%) blur(48px);
+  -webkit-backdrop-filter: saturate(200%) blur(48px);
+  border: 0.5px solid rgba(0, 0, 0, 0.10);
+  box-shadow: var(--shadow-overlay);
+  animation: modal-in 0.20s cubic-bezier(0.34, 1.18, 0.64, 1);
+}
+
+.dark #cmd-modal {
+  background: rgba(36, 36, 38, 0.88);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+#cmd-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border-bottom: 0.5px solid var(--sep);
+}
+
+.cmd-search-icon {
+  font-size: 17px;
+  color: var(--label-3);
+  flex-shrink: 0;
+  line-height: 1;
+  user-select: none;
+}
+
+#cmd-input {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 300;
+  font-family: inherit;
+  letter-spacing: -0.2px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--label);
+  min-width: 0;
+}
+
+#cmd-input::placeholder {
+  color: var(--label-3);
+  font-weight: 300;
+}
+
+#cmd-esc-badge {
+  font-size: 11px;
+  padding: 3px 7px;
+  line-height: 1.4;
+  border-radius: 5px;
+  border: 0.5px solid var(--sep-strong);
+  background: var(--fill);
+  color: var(--label-3);
+  font-family: inherit;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+#cmd-results {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px 0;
+  margin: 0;
+  list-style: none;
+}
+
+#cmd-results::-webkit-scrollbar { width: 3px; }
+#cmd-results::-webkit-scrollbar-track { background: transparent; }
+#cmd-results::-webkit-scrollbar-thumb {
+  background: var(--hiro);
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+/* Group label divider */
+.cmd-group-label {
+  padding: 8px 18px 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--label-3);
+  user-select: none;
+}
+
+/* Result rows */
+.cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 0 6px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.08s;
+  color: var(--label);
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.cmd-row:hover {
+  background: var(--fill);
+}
+
+.cmd-row.active {
+  background: var(--hiro);
+  color: #ffffff;
+}
+
+.cmd-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  opacity: 0.55;
+  line-height: 1;
+}
+
+.cmd-row.active .cmd-icon {
+  opacity: 0.85;
+}
+
+.cmd-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cmd-subtitle {
+  font-size: 12px;
+  color: var(--label-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+  flex-shrink: 0;
+}
+
+.cmd-row.active .cmd-subtitle {
+  color: rgba(255, 255, 255, 0.60);
+}
+
+.cmd-shortcut {
+  font-size: 12px;
+  color: var(--label-3);
+  font-family: inherit;
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 0.5px solid var(--sep-strong);
+  background: var(--fill);
+  line-height: 1.4;
+}
+
+.cmd-row.active .cmd-shortcut {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Footer hints */
+#cmd-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 18px;
+  border-top: 0.5px solid var(--sep);
+}
+
+.cmd-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--label-3);
+}
+
+.cmd-hint kbd {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 1px 5px;
+  line-height: 1.4;
+  border-radius: 4px;
+  border: 0.5px solid var(--sep-strong);
+  background: var(--fill);
+}
