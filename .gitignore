@@ -5,3 +5,10 @@ dist-lib
 template
 .DS_Store
 *.local
+
+# Local test files
+api-test.html
+test.html
+test2.html
+demo-docs/
+package-lock.json
