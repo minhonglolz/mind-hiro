@@ -1,4 +1,4 @@
-# Mind Hiro
+# Mind <font color="#ed6424">Hiro</font>
 
 Generate a **self-contained, interactive mind-map site** from a folder of Markdown files — single HTML file, works offline, no server needed.
 
