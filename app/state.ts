@@ -7,6 +7,7 @@ export interface AppState {
   theme: 'dark' | 'light'
   searchQuery: string
   isEditorVisible: boolean
+  localFileNames: Set<string>
 }
 
 type EventMap = {
@@ -15,6 +16,7 @@ type EventMap = {
   'theme:toggle': void
   'search:change': string
   'editor:toggle': void
+  'node:click': string
 }
 
 type Handler<T> = T extends void ? () => void : (payload: T) => void
@@ -53,4 +55,5 @@ export const state: AppState = {
   theme: 'light',
   searchQuery: '',
   isEditorVisible: true,
+  localFileNames: new Set(),
 }

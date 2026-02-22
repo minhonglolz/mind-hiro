@@ -1,6 +1,6 @@
 import { bus, state } from '../state'
 import { saveTheme } from '../utils/storage'
-import { buildShareURL } from '../utils/share'
+import { buildFileShareURL } from '../utils/share'
 import { GUIDE_FILE } from '../main'
 
 export function initToolbar(): void {
@@ -27,10 +27,11 @@ export function initToolbar(): void {
     themeBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙'
   })
 
-  // Share
+  // Share — local files include content; embedded files just use ?file=name
   shareBtn.addEventListener('click', () => {
-    if (!state.currentContent) return
-    const url = buildShareURL(state.currentContent)
+    if (!state.currentFile) return
+    const isLocal = state.localFileNames.has(state.currentFile.name)
+    const url = buildFileShareURL(state.currentFile, state.currentContent, isLocal)
     navigator.clipboard.writeText(url).then(
       () => {
         const orig = shareBtn.textContent
@@ -38,7 +39,8 @@ export function initToolbar(): void {
         setTimeout(() => { shareBtn.textContent = orig }, 2000)
       },
       () => {
-        window.location.hash = `share=${url.split('#share=')[1]}`
+        // Clipboard denied — update URL bar as fallback
+        window.history.replaceState(null, '', url)
       }
     )
   })

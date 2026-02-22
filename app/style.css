@@ -446,6 +446,7 @@ body {
    ───────────────────────────────────────────────────────────────────────── */
 
 #editor-panel {
+  position: relative;
   width: 280px;
   flex-shrink: 0;
   background: var(--bg);
@@ -453,8 +454,45 @@ body {
   flex-direction: column;
 }
 
-#editor {
+/* Scrollable wrapper — this div is the scroll container, not the textarea */
+#editor-scroll-wrap {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+}
+
+#editor-scroll-wrap::-webkit-scrollbar { width: 5px; }
+#editor-scroll-wrap::-webkit-scrollbar-track { background: transparent; }
+#editor-scroll-wrap::-webkit-scrollbar-thumb {
+  background: var(--sep-strong);
+  border-radius: 3px;
+}
+
+/* Persistent cursor-line indicator — always shows the current editing line */
+#editor-highlight-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  background: var(--hiro-soft);
+  border-left: 3px solid var(--hiro);
+  opacity: 0;
+  z-index: 1;
+  transition: top 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              opacity 0.15s ease;
+}
+
+#editor-highlight-bar.active {
+  opacity: 1;
+}
+
+#editor {
+  /* No fixed height — auto-resizes via JS so the wrapper div scrolls instead */
+  display: block;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
   resize: none;
   padding: 16px;
   font-size: 13px;
@@ -465,6 +503,7 @@ body {
   border: none;
   outline: none;
   -webkit-appearance: none;
+  overflow: hidden;
 }
 
 #editor::placeholder {
@@ -541,16 +580,13 @@ body {
 /* ── Dark mode: markmap renders inside SVG foreignObjects + text elements.
       Force light text so it's readable on the dark canvas.            ── */
 .dark #mindmap-panel svg foreignObject {
-  color: var(--label) !important;
+  color: #ffffff !important;
 }
 
 .dark #mindmap-panel svg text {
-  fill: var(--label) !important;
+  fill: #ffffff !important;
 }
 
-.dark #mindmap-panel svg .markmap-link {
-  stroke: rgba(235, 235, 245, 0.45) !important;
-}
 
 /* ─────────────────────────────────────────────────────────────────────────
    Command palette — Spotlight-inspired

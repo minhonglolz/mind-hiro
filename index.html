@@ -53,11 +53,14 @@
 
       <!-- Editor panel -->
       <section id="editor-panel">
-        <textarea
-          id="editor"
-          placeholder="Select a file to edit…"
-          spellcheck="false"
-        ></textarea>
+        <div id="editor-scroll-wrap">
+          <textarea
+            id="editor"
+            placeholder="Select a file to edit…"
+            spellcheck="false"
+          ></textarea>
+          <div id="editor-highlight-bar"></div>
+        </div>
         <div id="editor-stats">Lines: 0 &nbsp;&nbsp; Words: 0 &nbsp;&nbsp; Chars: 0</div>
       </section>
 

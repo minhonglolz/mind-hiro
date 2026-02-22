@@ -3,7 +3,7 @@ import type { MindMapFile } from '../shared/types'
 import { state } from './state'
 import { bus } from './state'
 import { loadTheme, loadLocalFiles } from './utils/storage'
-import { getShareFromHash } from './utils/share'
+import { getShareFromHash, getShareFromQuery } from './utils/share'
 import { applyTheme } from './components/toolbar'
 import { initToolbar } from './components/toolbar'
 import { initSidebar } from './components/sidebar'
@@ -34,6 +34,7 @@ export const GUIDE_FILE: MindMapFile = {
 #### 即時渲染 Markdown 標題層級結構
 #### 滾輪縮放、拖動平移
 #### 點擊節點可折疊與展開子樹
+#### 點擊節點文字可跳轉至編輯器對應行
 
 ## 快捷鍵
 
@@ -50,8 +51,8 @@ export const GUIDE_FILE: MindMapFile = {
 ## 分享功能
 
 ### 點擊工具列 Share 按鈕
-### 自動壓縮文件為 URL Hash
-### 複製到剪貼簿後即可分享
+### 本地檔案：將內容壓縮為 URL 參數一起分享
+### 內嵌檔案：分享含檔案名稱的 URL 供對方直接開啟
 `,
 }
 
@@ -67,17 +68,37 @@ function boot(): void {
     }
   }
 
-  // 2. Check for share hash — override files if present
+  // 2. Determine file list — priority: hash share > query share > normal
+  let targetFileName: string | null = null
+
   const sharedContent = getShareFromHash()
+  const queryShare = getShareFromQuery()
+
   if (sharedContent !== null) {
+    // Legacy #share= format — single shared file
     state.files = [{ name: 'shared.md', content: sharedContent }]
+  } else if (queryShare !== null) {
+    if (queryShare.content !== null) {
+      // ?file=name&md=compressed — shared local file with content
+      state.files = [{ name: queryShare.name, content: queryShare.content }]
+    } else {
+      // ?file=name only — embedded file, load normally then auto-select
+      const localFiles = loadLocalFiles()
+      const embeddedNames = new Set(embeddedFiles.map((f) => f.name))
+      embeddedNames.add(GUIDE_FILE.name)
+      const uniqueLocal = localFiles.filter((f) => !embeddedNames.has(f.name))
+      state.files = [GUIDE_FILE, ...embeddedFiles, ...uniqueLocal]
+      state.localFileNames = new Set(localFiles.map((f) => f.name))
+      targetFileName = queryShare.name
+    }
   } else {
-    // Merge: guide first, then embedded, then local (skip name conflicts)
+    // Normal load — merge guide + embedded + local
     const localFiles = loadLocalFiles()
     const embeddedNames = new Set(embeddedFiles.map((f) => f.name))
     embeddedNames.add(GUIDE_FILE.name)
     const uniqueLocal = localFiles.filter((f) => !embeddedNames.has(f.name))
     state.files = [GUIDE_FILE, ...embeddedFiles, ...uniqueLocal]
+    state.localFileNames = new Set(localFiles.map((f) => f.name))
   }
 
   // 3. Load and apply theme
@@ -91,11 +112,15 @@ function boot(): void {
   initEditor()
   initCommandPalette()
 
-  // 5. Select first file by default
-  if (state.files.length > 0) {
-    const first = state.files[0]
-    state.currentFile = first
-    bus.emit('file:select', first)
+  // 5. Select target file (from query param) or first file
+  const initialFile =
+    (targetFileName ? state.files.find((f) => f.name === targetFileName) : null) ??
+    state.files[0] ??
+    null
+
+  if (initialFile) {
+    state.currentFile = initialFile
+    bus.emit('file:select', initialFile)
   }
 }
 

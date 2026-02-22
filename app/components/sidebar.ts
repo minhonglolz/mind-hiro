@@ -62,6 +62,7 @@ export function initSidebar(): void {
 function addLocalFile(file: MindMapFile): void {
   localFiles.push(file)
   state.files.push(file)
+  state.localFileNames.add(file.name)
   saveLocalFiles(localFiles)
 
   const list = document.getElementById('file-list')!
@@ -74,6 +75,7 @@ function addLocalFile(file: MindMapFile): void {
 function deleteLocalFile(name: string): void {
   localFiles = localFiles.filter((f) => f.name !== name)
   state.files = state.files.filter((f) => f.name !== name)
+  state.localFileNames.delete(name)
   saveLocalFiles(localFiles)
   clearEdit(name)
 
