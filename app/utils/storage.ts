@@ -1,6 +1,7 @@
 const EDIT_PREFIX = 'mind-hiro:edit:'
 const THEME_KEY = 'mind-hiro:theme'
 const LOCAL_FILES_KEY = 'mind-hiro:local-files'
+const CHECKS_PREFIX = 'mind-hiro:checks:'
 
 export interface StoredFile { name: string; content: string }
 
@@ -31,6 +32,19 @@ export function loadEdit(filename: string): string | null {
 
 export function clearEdit(filename: string): void {
   localStorage.removeItem(EDIT_PREFIX + filename)
+}
+
+export function saveNodeChecks(filename: string, checks: Record<string, boolean>): void {
+  try {
+    localStorage.setItem(CHECKS_PREFIX + filename, JSON.stringify(checks))
+  } catch { /* quota exceeded */ }
+}
+
+export function loadNodeChecks(filename: string): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(CHECKS_PREFIX + filename)
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
+  } catch { return {} }
 }
 
 export function saveTheme(theme: 'dark' | 'light'): void {

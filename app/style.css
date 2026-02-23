@@ -587,6 +587,49 @@ body {
   fill: #ffffff !important;
 }
 
+/* ── Node checkboxes (pure SVG rect + polyline) ───────────────────────── */
+/* <g class="hiro-check-fo"> has pointer-events:none so circle-collapse    */
+/* still works; only the <rect> inside has pointer-events:auto.            */
+.hiro-check-fo .hiro-hit-area {
+  fill: none;
+  stroke: none;
+}
+.hiro-check-fo rect:not(.hiro-hit-area) {
+  fill: none;
+  stroke: #777;
+  stroke-width: 1.5;
+  opacity: 0.5;
+  transition: fill 0.15s ease, stroke 0.15s ease, opacity 0.15s ease;
+}
+.dark .hiro-check-fo rect:not(.hiro-hit-area) {
+  stroke: rgba(255, 255, 255, 0.8);
+}
+.hiro-check-fo:hover rect:not(.hiro-hit-area) {
+  opacity: 0.9;
+}
+/* Checked state: higher specificity wins over the base rect:not() rule */
+.hiro-check-fo.hiro-cb-checked rect:not(.hiro-hit-area) {
+  fill: var(--hiro);
+  stroke: var(--hiro);
+  opacity: 1;
+}
+.hiro-check-fo polyline {
+  stroke: white;
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.hiro-check-fo.hiro-cb-checked polyline {
+  opacity: 1;
+}
+
+/* Checked node (and its descendants): dimming applied via JS (applyDimming())
+   after D3 transitions complete, because D3's per-frame style.opacity writes
+   overwrite any !important inline values during active transitions. */
+
 
 /* ─────────────────────────────────────────────────────────────────────────
    Command palette — Spotlight-inspired
