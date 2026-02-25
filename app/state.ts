@@ -17,6 +17,7 @@ type EventMap = {
   'search:change': string
   'editor:toggle': void
   'node:click': string
+  'checks:change': void
 }
 
 type Handler<T> = T extends void ? () => void : (payload: T) => void

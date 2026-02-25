@@ -10,6 +10,7 @@
 :root {
   /* Surfaces */
   --bg:               #ffffff;
+  --green:            #28a745;
   --bg-secondary:     #f5f5f7;
   --bg-tertiary:      #e8e8ed;
   --bg-glass:         rgba(255, 255, 255, 0.72);
@@ -40,6 +41,7 @@
 .dark {
   /* Surfaces */
   --bg:               #000000;
+  --green:            #30d158;
   --bg-secondary:     #1c1c1e;
   --bg-tertiary:      #2c2c2e;
   --bg-glass:         rgba(28, 28, 30, 0.72);
@@ -441,6 +443,44 @@ body {
   color: var(--label-3);
 }
 
+/* Inline rename input (double-click on local file name) */
+.rename-input {
+  flex: 1;
+  font-size: 13px;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--hiro);
+  outline: none;
+  color: var(--label);
+  min-width: 0;
+  padding: 0;
+}
+
+.file-item.active .rename-input {
+  color: #ffffff;
+  border-bottom-color: rgba(255, 255, 255, 0.7);
+}
+
+/* File progress badge (% next to filename) */
+.file-progress {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--green);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  min-width: 0;
+}
+
+.file-item.active .file-progress {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.file-item.match .file-progress {
+  color: var(--green);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    Editor panel
    ───────────────────────────────────────────────────────────────────────── */
@@ -522,9 +562,10 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Resize handle
+   Resize handles
    ───────────────────────────────────────────────────────────────────────── */
 
+#sidebar-resize-handle,
 #resize-handle {
   width: 3px;
   flex-shrink: 0;
@@ -533,6 +574,8 @@ body {
   transition: background 0.15s;
 }
 
+#sidebar-resize-handle:hover,
+#sidebar-resize-handle:active,
 #resize-handle:hover,
 #resize-handle:active {
   background: var(--hiro);
@@ -575,6 +618,71 @@ body {
 
 #mindmap-svg .markmap-node circle {
   cursor: pointer;
+}
+
+/* ── Mindmap quick-action controls (top-right floating panel) ───────────── */
+
+#mindmap-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+}
+
+.mindmap-ctrl-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 0.5px solid var(--sep-strong);
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--label-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+
+.mindmap-ctrl-btn:hover {
+  color: var(--label);
+  background: var(--bg);
+  border-color: var(--hiro);
+}
+
+.mindmap-ctrl-btn:active {
+  background: var(--hiro-soft);
+}
+
+/* CSS tooltip — shown to the left of the button */
+.mindmap-ctrl-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + 9px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--label);
+  color: var(--bg);
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-weight: 400;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 5px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease 0.35s;
+  z-index: 20;
+}
+
+.mindmap-ctrl-btn[data-tooltip]:hover::after {
+  opacity: 1;
 }
 
 /* ── Dark mode: markmap renders inside SVG foreignObjects + text elements.

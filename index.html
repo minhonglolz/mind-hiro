@@ -51,6 +51,9 @@
         <input id="file-upload-input" type="file" accept=".md" multiple style="display:none" />
       </aside>
 
+      <!-- Sidebar resize handle -->
+      <div id="sidebar-resize-handle" title="Drag to resize sidebar"></div>
+
       <!-- Editor panel -->
       <section id="editor-panel">
         <div id="editor-scroll-wrap">
@@ -71,6 +74,20 @@
       <section id="mindmap-panel">
         <svg id="mindmap-svg"></svg>
         <div id="mindmap-placeholder">Select a file to view its mind map</div>
+        <!-- Mindmap quick-action controls -->
+        <div id="mindmap-controls">
+          <button id="clear-checks-btn" class="mindmap-ctrl-btn" data-tooltip="清空所有 Checkbox">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+              <rect x="1.5" y="1.5" width="13" height="13" rx="2"/>
+              <path d="M5.5 5.5l5 5M10.5 5.5l-5 5"/>
+            </svg>
+          </button>
+          <button id="fold-all-btn" class="mindmap-ctrl-btn" data-tooltip="收折全部">
+            <svg id="fold-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+              <path d="M3 5l5 3.5 5-3.5M3 10.5l5 3.5 5-3.5"/>
+            </svg>
+          </button>
+        </div>
       </section>
 
     </div>

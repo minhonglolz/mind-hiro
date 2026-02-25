@@ -1,6 +1,15 @@
+import { Transformer } from 'markmap-lib'
 import { bus, state } from '../state'
-import { saveLocalFiles, loadLocalFiles, clearEdit } from '../utils/storage'
+import {
+  saveLocalFiles, loadLocalFiles,
+  saveEdit, loadEdit, clearEdit,
+  loadNodeChecks,
+  renameChecks,
+  saveSidebarWidth, loadSidebarWidth,
+} from '../utils/storage'
 import type { MindMapFile } from '../../shared/types'
+
+const transformer = new Transformer()
 
 // In-memory list of user-added local files (persisted to localStorage)
 let localFiles: MindMapFile[] = loadLocalFiles()
@@ -19,6 +28,7 @@ export function initSidebar(): void {
   const newFileBtn = document.getElementById('new-file-btn')!
   const fileInput = document.getElementById('file-upload-input') as HTMLInputElement
 
+  initSidebarResize()
   renderFiles(list, state.files, '')
 
   // Search
@@ -30,6 +40,26 @@ export function initSidebar(): void {
   // File selected — re-render to update active highlight
   bus.on('file:select', () => {
     renderFiles(list, state.files, state.searchQuery)
+  })
+
+  // After editor finishes loading a file it emits content:change.
+  // Re-sync the active file's progress badge at that point (guaranteed correct).
+  // Also handles live updates while the user types.
+  bus.on('content:change', () => {
+    if (!state.currentFile) return
+    const activeItem = list.querySelector<HTMLElement>('.file-item.active')
+    if (!activeItem) return
+    const progressEl = activeItem.querySelector('.file-progress')
+    if (progressEl) progressEl.textContent = computeProgress(state.currentFile)
+  })
+
+  // Checkbox toggled — update progress badge for active file only
+  bus.on('checks:change', () => {
+    if (!state.currentFile) return
+    const activeItem = list.querySelector<HTMLElement>('.file-item.active')
+    if (!activeItem) return
+    const progressEl = activeItem.querySelector('.file-progress')
+    if (progressEl) progressEl.textContent = computeProgress(state.currentFile)
   })
 
   // ── Upload .md file ────────────────────────────────────────────────────
@@ -58,6 +88,140 @@ export function initSidebar(): void {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+
+function initSidebarResize(): void {
+  const handle  = document.getElementById('sidebar-resize-handle')!
+  const sidebar = document.getElementById('sidebar')!
+  // Restore saved width
+  sidebar.style.width = `${loadSidebarWidth()}px`
+
+  let dragging = false, startX = 0, startWidth = 0
+
+  handle.addEventListener('mousedown', (e) => {
+    dragging = true
+    startX = e.clientX
+    startWidth = sidebar.offsetWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    e.preventDefault()
+  })
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return
+    const newWidth = Math.max(100, Math.min(400, startWidth + (e.clientX - startX)))
+    sidebar.style.width = `${newWidth}px`
+  })
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return
+    dragging = false
+    document.body.style.cursor = document.body.style.userSelect = ''
+    saveSidebarWidth(sidebar.offsetWidth)
+  })
+}
+
+// Convert markmap node HTML content to the same plain text used as checkbox keys.
+// Must match injectCheckboxes: div.textContent?.trim()
+function htmlToText(html: string): string {
+  const el = document.createElement('div')
+  el.innerHTML = html
+  return el.textContent?.trim() ?? ''
+}
+
+function computeProgress(file: MindMapFile): string {
+  const checks  = loadNodeChecks(file.name)
+  const saved   = loadEdit(file.name)
+  const content = saved !== null ? saved : file.content
+  if (!content.trim()) return ''
+
+  let total = 0
+  let checkedCount = 0
+
+  try {
+    const { root } = transformer.transform(content)
+
+    // Walk the markmap tree. If a parent is checked, all descendants count as
+    // checked too — mirroring the dimming logic in applyDimming().
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function walk(node: any, parentChecked: boolean): void {
+      const nodeText = htmlToText(node.content ?? '')
+      if (!nodeText) {
+        // Empty node — skip it but still walk children
+        for (const child of node.children ?? []) walk(child, parentChecked)
+        return
+      }
+      total++
+      const isChecked = parentChecked || !!checks[nodeText]
+      if (isChecked) checkedCount++
+      for (const child of node.children ?? []) walk(child, isChecked)
+    }
+
+    walk(root, false)
+  } catch {
+    return ''
+  }
+
+  if (total === 0) return ''
+  return `${Math.floor((checkedCount / total) * 100)}%`
+}
+
+function renameLocalFile(oldName: string, newName: string): void {
+  // Update sidebar's local array
+  const lf = localFiles.find((f) => f.name === oldName)
+  if (lf) lf.name = newName
+  // Update state.files (may be a different object for startup-loaded files)
+  const sf = state.files.find((f) => f.name === oldName)
+  if (sf) sf.name = newName
+  state.localFileNames.delete(oldName)
+  state.localFileNames.add(newName)
+  saveLocalFiles(localFiles)
+  // Migrate edit draft
+  const edit = loadEdit(oldName)
+  if (edit !== null) { saveEdit(newName, edit); clearEdit(oldName) }
+  // Migrate checks
+  renameChecks(oldName, newName)
+  const list = document.getElementById('file-list')!
+  renderFiles(list, state.files, state.searchQuery)
+}
+
+function startRename(li: HTMLElement, file: MindMapFile, nameSpan: HTMLElement): void {
+  if (li.querySelector('.rename-input')) return // already renaming
+
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'rename-input'
+  input.value = file.name
+  input.spellcheck = false
+  nameSpan.replaceWith(input)
+  input.focus()
+  input.select()
+
+  let committed = false
+
+  const commit = () => {
+    if (committed) return
+    committed = true
+    const raw = input.value.trim().replace(/\.md$/i, '')
+    if (raw && raw !== file.name) {
+      // uniqueName handles conflicts; file.name still equals oldName here
+      const newName = uniqueName(raw)
+      renameLocalFile(file.name, newName)
+    } else {
+      input.replaceWith(nameSpan)
+    }
+  }
+  const cancel = () => {
+    if (committed) return
+    committed = true
+    input.replaceWith(nameSpan)
+  }
+
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation()
+    if (e.key === 'Enter') { e.preventDefault(); commit() }
+    if (e.key === 'Escape') cancel()
+  })
+  input.addEventListener('click', (e) => e.stopPropagation())
+  input.addEventListener('blur', commit)
+}
 
 function addLocalFile(file: MindMapFile): void {
   localFiles.push(file)
@@ -178,9 +342,29 @@ function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): vo
       .filter(Boolean)
       .join(' ')
 
-    li.innerHTML = `<span class="file-icon">📄</span><span class="file-name">${escapeHtml(file.name)}</span>`
+    const iconSpan = document.createElement('span')
+    iconSpan.className = 'file-icon'
+    iconSpan.textContent = '📄'
+
+    const nameSpan = document.createElement('span')
+    nameSpan.className = 'file-name'
+    nameSpan.textContent = file.name
+
+    const progressSpan = document.createElement('span')
+    progressSpan.className = 'file-progress'
+    progressSpan.textContent = computeProgress(file)
+
+    li.appendChild(iconSpan)
+    li.appendChild(nameSpan)
+    li.appendChild(progressSpan)
 
     if (localNames.has(file.name)) {
+      // Double-click on name → rename
+      nameSpan.addEventListener('dblclick', (e) => {
+        e.stopPropagation()
+        startRename(li, file, nameSpan)
+      })
+
       const btn = document.createElement('button')
       btn.className = 'delete-btn'
       btn.title = 'Delete file'
@@ -195,6 +379,8 @@ function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): vo
     }
 
     li.addEventListener('click', () => {
+      // Skip if already active — keeps DOM intact so dblclick rename can fire
+      if (state.currentFile?.name === file.name) return
       state.currentFile = file
       bus.emit('file:select', file)
     })

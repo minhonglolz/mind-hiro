@@ -2,6 +2,7 @@ const EDIT_PREFIX = 'mind-hiro:edit:'
 const THEME_KEY = 'mind-hiro:theme'
 const LOCAL_FILES_KEY = 'mind-hiro:local-files'
 const CHECKS_PREFIX = 'mind-hiro:checks:'
+const SIDEBAR_WIDTH_KEY = 'mind-hiro:sidebar-width'
 
 export interface StoredFile { name: string; content: string }
 
@@ -45,6 +46,27 @@ export function loadNodeChecks(filename: string): Record<string, boolean> {
     const raw = localStorage.getItem(CHECKS_PREFIX + filename)
     return raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
   } catch { return {} }
+}
+
+export function renameChecks(oldName: string, newName: string): void {
+  const data = localStorage.getItem(CHECKS_PREFIX + oldName)
+  if (data !== null) {
+    try { localStorage.setItem(CHECKS_PREFIX + newName, data) } catch { /* quota */ }
+    localStorage.removeItem(CHECKS_PREFIX + oldName)
+  }
+}
+
+export function saveSidebarWidth(w: number): void {
+  try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w)) } catch { /* quota */ }
+}
+
+export function loadSidebarWidth(): number {
+  const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY)
+  if (raw) {
+    const n = parseInt(raw, 10)
+    if (!isNaN(n) && n >= 100 && n <= 500) return n
+  }
+  return 196
 }
 
 export function saveTheme(theme: 'dark' | 'light'): void {

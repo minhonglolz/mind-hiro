@@ -7,6 +7,8 @@ const transformer = new Transformer()
 let mm: Markmap | null = null
 let renderTimer: ReturnType<typeof setTimeout> | null = null
 let dimmingTimer: ReturnType<typeof setTimeout> | null = null
+let currentContent = ''
+let foldAllActive = false
 
 const CB_SIDE = 12 // checkbox square size (px)
 const CB_GAP  = 4  // gap between checkbox right edge and text left edge (px)
@@ -39,8 +41,18 @@ export function initMindmap(): void {
   })
 
   bus.on('file:select', () => {
+    // Reset fold state when switching files
+    foldAllActive = false
+    const foldBtn = document.getElementById('fold-all-btn')
+    if (foldBtn) {
+      foldBtn.setAttribute('data-tooltip', '收折全部')
+      const path = foldBtn.querySelector('path')
+      if (path) path.setAttribute('d', 'M3 5l5 3.5 5-3.5M3 10.5l5 3.5 5-3.5')
+    }
     // content:change will fire after file:select — placeholder managed there
   })
+
+  initMindmapControls()
 
   // Bubble-phase: node text click → scroll editor
   ;(svg as unknown as SVGElement).addEventListener('click', (e: Event) => {
@@ -76,6 +88,8 @@ export function initMindmap(): void {
 
 function renderContent(content: string): void {
   if (!mm) return
+  currentContent = content
+  foldAllActive = false
   if (!content.trim()) {
     mm.setData({ content: '', children: [] })
     return
@@ -85,6 +99,56 @@ function renderContent(content: string): void {
   mm.fit()
   requestAnimationFrame(() => injectCheckboxes())
   // applyDimming() is handled by the MutationObserver after transitions settle
+}
+
+// ── Mindmap quick-action controls ─────────────────────────────────────────
+
+function initMindmapControls(): void {
+  const clearBtn = document.getElementById('clear-checks-btn')
+  const foldBtn  = document.getElementById('fold-all-btn')
+
+  clearBtn?.addEventListener('click', () => {
+    const file = state.currentFile?.name
+    if (!file) return
+    const svg = document.getElementById('mindmap-svg')!
+    svg.querySelectorAll('.hiro-check-fo.hiro-cb-checked').forEach((el) => {
+      el.classList.remove('hiro-cb-checked')
+    })
+    saveNodeChecks(file, {})
+    applyDimming()
+    bus.emit('checks:change')
+  })
+
+  foldBtn?.addEventListener('click', () => {
+    if (!mm || !currentContent.trim()) return
+    foldAllActive = !foldAllActive
+    const foldSvg = foldBtn.querySelector('path')
+
+    // Re-transform to get a clean tree, then apply fold state
+    const { root } = transformer.transform(currentContent)
+    if (foldAllActive) {
+      foldBtn.setAttribute('data-tooltip', '展開全部')
+      // Fold all non-root nodes that have children
+      applyFold(root, true, true)
+      if (foldSvg) foldSvg.setAttribute('d', 'M3 5l5-3.5 5 3.5M3 11l5 3.5 5-3.5')
+    } else {
+      foldBtn.setAttribute('data-tooltip', '收折全部')
+      if (foldSvg) foldSvg.setAttribute('d', 'M3 5l5 3.5 5-3.5M3 10.5l5 3.5 5-3.5')
+    }
+    mm.setData(root)
+    mm.fit()
+    requestAnimationFrame(() => injectCheckboxes())
+  })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyFold(node: any, fold: boolean, isRoot: boolean): void {
+  if (!isRoot && (node.children ?? []).length > 0) {
+    node.payload = node.payload ?? {}
+    node.payload.fold = fold ? 1 : 0
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const child of node.children ?? []) applyFold(child, fold, false)
 }
 
 // ── Node checkboxes (pure SVG) ─────────────────────────────────────────────
@@ -195,6 +259,7 @@ function injectCheckboxes(): void {
       current[nodeText] = isChecked
       saveNodeChecks(file, current)
       applyDimming()
+      bus.emit('checks:change')
     })
   })
 
