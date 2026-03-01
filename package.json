@@ -37,7 +37,9 @@
     "static-site"
   ],
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "lucide": "^0.575.0"
+  },
   "devDependencies": {
     "@types/node": "^20.12.0",
     "autoprefixer": "^10.4.19",

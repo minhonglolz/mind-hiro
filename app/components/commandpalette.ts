@@ -1,5 +1,6 @@
 import { bus, state } from '../state'
 import { buildShareURL } from '../utils/share'
+import { icon as makeIcon } from '../utils/icons'
 import type { MindMapFile } from '../../shared/types'
 
 export interface Action {
@@ -103,7 +104,7 @@ function render(actions: Action[]): void {
 
     const icon = document.createElement('span')
     icon.className = 'cmd-icon'
-    icon.textContent = action.group === 'Files' ? '📄' : '⚡'
+    icon.appendChild(makeIcon(action.group === 'Files' ? 'FileText' : 'Settings', 15))
 
     const label = document.createElement('span')
     label.className = 'cmd-label'

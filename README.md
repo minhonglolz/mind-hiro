@@ -8,13 +8,19 @@ Powered by [markmap](https://markmap.js.org/) + [Vite](https://vitejs.dev/).
 
 ## Features
 
-- **Three-panel UI** — file sidebar, Markdown editor, live mind-map renderer
+- **Three-panel UI** — resizable file sidebar, Markdown editor, live mind-map renderer
 - **Command palette** — `⌘K` to search files and run actions (toggle theme, share, …)
 - **Live editing** — edit Markdown in the browser; mind map updates in real time
 - **Full-text search** — filter files by filename or content
-- **Share links** — compress the current file into a URL hash and copy to clipboard
-- **Dark / light mode** — toggled via toolbar or command palette, persisted to `localStorage`
+- **File management** — upload `.md` files, create new files, rename (double-click), delete
+- **Node checkboxes** — tick any mind-map node to mark it done; checked nodes and their subtrees dim automatically
+- **Progress tracking** — completion percentage displayed next to each file in the sidebar
+- **Progress export / import** — save check state to JSON (current file or all files); import auto-detects format
+- **Fold / unfold** — collapse or expand all mind-map nodes with one click
+- **Share links** — compress the current file into a URL and copy to clipboard
+- **Dark / light mode** — toggled via toolbar or `⌘T`, persisted to `localStorage`
 - **Local edits saved** — browser remembers edits per file across sessions
+- **Editor stats** — live line, word, and character count in the status bar
 - **Fully self-contained** — all JS/CSS inlined; no CDN, works offline
 
 ---

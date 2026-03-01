@@ -2,6 +2,7 @@ import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
 import { bus, state } from '../state'
 import { saveNodeChecks, loadNodeChecks } from '../utils/storage'
+import { icon as makeIcon } from '../utils/icons'
 
 const transformer = new Transformer()
 let mm: Markmap | null = null
@@ -40,14 +41,22 @@ export function initMindmap(): void {
     }, 300)
   })
 
+  bus.on('checks:reload', () => {
+    // Remove existing checkboxes so injectCheckboxes() re-creates them with fresh state
+    const mindmapSvg = document.getElementById('mindmap-svg')
+    mindmapSvg?.querySelectorAll('.hiro-check-fo').forEach((el) => el.remove())
+    injectCheckboxes()
+    applyDimming()
+  })
+
   bus.on('file:select', () => {
     // Reset fold state when switching files
     foldAllActive = false
     const foldBtn = document.getElementById('fold-all-btn')
     if (foldBtn) {
+      foldBtn.innerHTML = ''
       foldBtn.setAttribute('data-tooltip', '收折全部')
-      const path = foldBtn.querySelector('path')
-      if (path) path.setAttribute('d', 'M3 5l5 3.5 5-3.5M3 10.5l5 3.5 5-3.5')
+      foldBtn.appendChild(makeIcon('ChevronsUp', 14))
     }
     // content:change will fire after file:select — placeholder managed there
   })
@@ -107,6 +116,10 @@ function initMindmapControls(): void {
   const clearBtn = document.getElementById('clear-checks-btn')
   const foldBtn  = document.getElementById('fold-all-btn')
 
+  // Replace HTML inline SVGs with Lucide icons
+  if (clearBtn) { clearBtn.innerHTML = ''; clearBtn.appendChild(makeIcon('SquareX', 14)) }
+  if (foldBtn)  { foldBtn.innerHTML = '';  foldBtn.appendChild(makeIcon('ChevronsUp', 14)) }
+
   clearBtn?.addEventListener('click', () => {
     const file = state.currentFile?.name
     if (!file) return
@@ -122,19 +135,20 @@ function initMindmapControls(): void {
   foldBtn?.addEventListener('click', () => {
     if (!mm || !currentContent.trim()) return
     foldAllActive = !foldAllActive
-    const foldSvg = foldBtn.querySelector('path')
+
+    // Swap icon and tooltip
+    foldBtn.innerHTML = ''
+    if (foldAllActive) {
+      foldBtn.setAttribute('data-tooltip', '展開全部')
+      foldBtn.appendChild(makeIcon('ChevronsDown', 14))
+    } else {
+      foldBtn.setAttribute('data-tooltip', '收折全部')
+      foldBtn.appendChild(makeIcon('ChevronsUp', 14))
+    }
 
     // Re-transform to get a clean tree, then apply fold state
     const { root } = transformer.transform(currentContent)
-    if (foldAllActive) {
-      foldBtn.setAttribute('data-tooltip', '展開全部')
-      // Fold all non-root nodes that have children
-      applyFold(root, true, true)
-      if (foldSvg) foldSvg.setAttribute('d', 'M3 5l5-3.5 5 3.5M3 11l5 3.5 5-3.5')
-    } else {
-      foldBtn.setAttribute('data-tooltip', '收折全部')
-      if (foldSvg) foldSvg.setAttribute('d', 'M3 5l5 3.5 5-3.5M3 10.5l5 3.5 5-3.5')
-    }
+    if (foldAllActive) applyFold(root, true, true)
     mm.setData(root)
     mm.fit()
     requestAnimationFrame(() => injectCheckboxes())

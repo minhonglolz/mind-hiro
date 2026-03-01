@@ -79,3 +79,40 @@ export function loadTheme(): 'dark' | 'light' {
   // Respect OS preference as fallback
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
+
+// ── Progress import / export (per-file and all-files) ────────────────────
+
+export interface FileProgressExport {
+  version: '1'
+  filename: string
+  checks: Record<string, boolean>
+}
+
+export interface AllProgressExport {
+  version: '1'
+  all: true
+  files: FileProgressExport[]
+}
+
+export function exportFileChecks(filename: string): FileProgressExport {
+  return { version: '1', filename, checks: loadNodeChecks(filename) }
+}
+
+export function exportAllChecks(filenames: string[]): AllProgressExport {
+  return { version: '1', all: true, files: filenames.map((n) => exportFileChecks(n)) }
+}
+
+export function importFileChecks(data: FileProgressExport): void {
+  if (data.version !== '1' || typeof data.checks !== 'object' || !data.filename)
+    throw new Error('Invalid progress file')
+  saveNodeChecks(data.filename, data.checks)
+}
+
+export function importChecks(data: FileProgressExport | AllProgressExport): void {
+  if ('all' in data && data.all) {
+    if (!Array.isArray(data.files)) throw new Error('Invalid progress file')
+    for (const f of data.files) importFileChecks(f)
+  } else {
+    importFileChecks(data as FileProgressExport)
+  }
+}

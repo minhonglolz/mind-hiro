@@ -6,7 +6,10 @@ import {
   loadNodeChecks,
   renameChecks,
   saveSidebarWidth, loadSidebarWidth,
+  exportFileChecks, exportAllChecks, importChecks,
+  type FileProgressExport, type AllProgressExport,
 } from '../utils/storage'
+import { icon as makeIcon, type IconName } from '../utils/icons'
 import type { MindMapFile } from '../../shared/types'
 
 const transformer = new Transformer()
@@ -19,17 +22,73 @@ let pill: HTMLDivElement
 let pillReady = false
 
 export function initSidebar(): void {
-  const list = document.getElementById('file-list')!
+  const list      = document.getElementById('file-list')!
+  const fileInput = document.getElementById('file-upload-input') as HTMLInputElement
 
   pill = document.createElement('div')
   pill.id = 'sidebar-pill'
   list.prepend(pill)
-  const uploadBtn = document.getElementById('upload-btn')!
-  const newFileBtn = document.getElementById('new-file-btn')!
-  const fileInput = document.getElementById('file-upload-input') as HTMLInputElement
 
   initSidebarResize()
   renderFiles(list, state.files, '')
+
+  // ── Sidebar gear dropdown ──────────────────────────────────────────────
+
+  const gearBtn      = document.getElementById('sidebar-gear-btn')!
+  const gearDropdown = document.getElementById('sidebar-gear-dropdown')!
+
+  gearBtn.appendChild(makeIcon('Settings', 14))
+
+  let dropdownOpen = false
+
+  function openDropdown(): void {
+    buildSidebarDropdown(gearDropdown, list, fileInput)
+    gearDropdown.classList.remove('hidden')
+    gearBtn.setAttribute('aria-expanded', 'true')
+    dropdownOpen = true
+  }
+
+  function closeDropdown(): void {
+    gearDropdown.classList.add('hidden')
+    gearBtn.setAttribute('aria-expanded', 'false')
+    dropdownOpen = false
+  }
+
+  gearBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    if (dropdownOpen) closeDropdown()
+    else openDropdown()
+  })
+
+  document.addEventListener('click', (e) => {
+    if (!dropdownOpen) return
+    const wrap = document.getElementById('sidebar-gear-wrap')!
+    if (!wrap.contains(e.target as Node)) closeDropdown()
+  })
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dropdownOpen) closeDropdown()
+  })
+
+  // ── Upload .md file ────────────────────────────────────────────────────
+
+  fileInput.addEventListener('change', () => {
+    const picked = Array.from(fileInput.files ?? []).filter((f) =>
+      f.name.toLowerCase().endsWith('.md')
+    )
+    fileInput.value = ''
+    for (const file of picked) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const content = (e.target?.result as string) ?? ''
+        const name = file.name.replace(/\.md$/i, '')
+        addLocalFile({ name: uniqueName(name), content })
+      }
+      reader.readAsText(file)
+    }
+  })
+
+  // ── Bus events ─────────────────────────────────────────────────────────
 
   // Search
   bus.on('search:change', (query: string) => {
@@ -61,30 +120,66 @@ export function initSidebar(): void {
     const progressEl = activeItem.querySelector('.file-progress')
     if (progressEl) progressEl.textContent = computeProgress(state.currentFile)
   })
+}
 
-  // ── Upload .md file ────────────────────────────────────────────────────
-  uploadBtn.addEventListener('click', () => fileInput.click())
+// ── Sidebar gear dropdown builder ─────────────────────────────────────────
 
-  fileInput.addEventListener('change', () => {
-    const picked = Array.from(fileInput.files ?? []).filter((f) =>
-      f.name.toLowerCase().endsWith('.md')
-    )
-    fileInput.value = ''
-    for (const file of picked) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const content = (e.target?.result as string) ?? ''
-        const name = file.name.replace(/\.md$/i, '')
-        addLocalFile({ name: uniqueName(name), content })
-      }
-      reader.readAsText(file)
-    }
-  })
+function buildSidebarDropdown(
+  dropdown: HTMLElement,
+  list: HTMLElement,
+  fileInput: HTMLInputElement,
+): void {
+  dropdown.innerHTML = ''
 
-  // ── New blank file ─────────────────────────────────────────────────────
-  newFileBtn.addEventListener('click', () => {
+  dropdown.appendChild(makeSidebarItem('Plus', '新建檔案', () => {
+    dropdown.classList.add('hidden')
     showNewFileInput(list)
+  }))
+
+  dropdown.appendChild(makeSidebarItem('Upload', '上傳 .md', () => {
+    dropdown.classList.add('hidden')
+    fileInput.click()
+  }))
+
+  dropdown.appendChild(sidebarSep())
+
+  const exportOneBtn = makeSidebarItem('Download', '匯出當前檔案進度', () => {
+    dropdown.classList.add('hidden')
+    if (state.currentFile) doExport(state.currentFile.name)
   })
+  if (!state.currentFile) exportOneBtn.disabled = true
+  dropdown.appendChild(exportOneBtn)
+
+  dropdown.appendChild(makeSidebarItem('Files', '匯出全部進度', () => {
+    dropdown.classList.add('hidden')
+    doExportAll()
+  }))
+
+  dropdown.appendChild(sidebarSep())
+
+  dropdown.appendChild(makeSidebarItem('FolderInput', '匯入進度', () => {
+    dropdown.classList.add('hidden')
+    doImport()
+  }))
+}
+
+function makeSidebarItem(iconName: IconName, label: string, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button')
+  btn.className = 'gear-item'
+  btn.setAttribute('role', 'menuitem')
+  btn.appendChild(makeIcon(iconName, 14))
+  const span = document.createElement('span')
+  span.className = 'gear-item__label'
+  span.textContent = label
+  btn.appendChild(span)
+  btn.addEventListener('click', onClick)
+  return btn
+}
+
+function sidebarSep(): HTMLHRElement {
+  const hr = document.createElement('hr')
+  hr.className = 'gear-separator'
+  return hr
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -271,7 +366,7 @@ function showNewFileInput(list: HTMLElement): void {
 
   const icon = document.createElement('span')
   icon.className = 'file-icon'
-  icon.textContent = '📄'
+  icon.appendChild(makeIcon('FileText', 13))
 
   const input = document.createElement('input')
   input.type = 'text'
@@ -299,6 +394,57 @@ function showNewFileInput(list: HTMLElement): void {
     if (e.key === 'Escape') { committed = true; li.remove() }
   })
   input.addEventListener('blur', commit)
+}
+
+function doExport(filename: string): void {
+  const data = exportFileChecks(filename)
+  const json = JSON.stringify(data, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `mind-hiro-${filename}-progress.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function doExportAll(): void {
+  const filenames = state.files.map((f) => f.name)
+  const data = exportAllChecks(filenames)
+  const json = JSON.stringify(data, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = 'mind-hiro-all-progress.json'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function doImport(): void {
+  const input = document.getElementById('progress-import-input') as HTMLInputElement
+  input.value = ''
+  input.click()
+  input.onchange = () => {
+    const file = input.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string) as FileProgressExport | AllProgressExport
+        importChecks(data)
+        bus.emit('checks:reload')
+        bus.emit('search:change', state.searchQuery)
+      } catch {
+        alert('Invalid progress file.')
+      }
+    }
+    reader.readAsText(file)
+  }
 }
 
 function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): void {
@@ -344,7 +490,7 @@ function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): vo
 
     const iconSpan = document.createElement('span')
     iconSpan.className = 'file-icon'
-    iconSpan.textContent = '📄'
+    iconSpan.appendChild(makeIcon('FileText', 13))
 
     const nameSpan = document.createElement('span')
     nameSpan.className = 'file-name'
@@ -368,9 +514,7 @@ function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): vo
       const btn = document.createElement('button')
       btn.className = 'delete-btn'
       btn.title = 'Delete file'
-      btn.innerHTML = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M2 3.5h10M5 3.5V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M11 3.5l-.7 7.5H3.7L3 3.5"/>
-      </svg>`
+      btn.appendChild(makeIcon('Trash2', 12))
       btn.addEventListener('click', (e) => {
         e.stopPropagation()
         deleteLocalFile(file.name)
@@ -423,10 +567,3 @@ function updatePill(list: HTMLElement): void {
   }
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
