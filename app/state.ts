@@ -17,6 +17,10 @@ type EventMap = {
   'search:change': string
   'editor:toggle': void
   'node:click': string
+  'node:edit': { oldText: string; newText: string }
+  'node:insert-after': { anchorText: string; newText: string }
+  'node:delete': string
+  'editor:active-node': string
   'checks:change': void
   'checks:reload': void
 }

@@ -44,19 +44,155 @@ export function initEditor(): void {
     handle.style.display = state.isEditorVisible ? 'block' : 'none'
   })
 
-  // ── Persistent cursor bar: update on every cursor move ──────────────────
+  // ── Persistent cursor bar + mindmap active-node sync ────────────────────
+  let lastActiveNodeText = ''
   document.addEventListener('selectionchange', () => {
     if (document.activeElement !== textarea) return
     const lineIndex = textarea.value
       .substring(0, textarea.selectionStart)
       .split('\n').length - 1
     positionBar(textarea, lineIndex)
+
+    // Sync mindmap selection to follow editor cursor
+    const lines  = textarea.value.split('\n')
+    const raw    = lines[lineIndex] ?? ''
+    const stripped = raw.startsWith('#')
+      ? stripInlineMarkdown(raw.replace(/^#+\s*/, ''))
+      : stripInlineMarkdown(raw.replace(/^[\s\-*+\d.]+/, ''))
+    if (stripped !== lastActiveNodeText) {
+      lastActiveNodeText = stripped
+      bus.emit('editor:active-node', stripped)
+    }
   })
 
   // ── Mindmap node click ───────────────────────────────────────────────────
   bus.on('node:click', (nodeText: string) => {
     if (!state.isEditorVisible) bus.emit('editor:toggle')
     jumpToNode(textarea, wrap, nodeText)
+  })
+
+  // ── Mindmap: insert new sibling below selected node ──────────────────────
+  bus.on('node:insert-after', ({ anchorText, newText }: { anchorText: string; newText: string }) => {
+    const lines = textarea.value.split('\n')
+    let targetLine = -1
+
+    for (let i = 0; i < lines.length; i++) {
+      const raw      = lines[i]
+      const stripped = raw.startsWith('#')
+        ? stripInlineMarkdown(raw.replace(/^#+\s*/, ''))
+        : stripInlineMarkdown(raw.replace(/^[\s\-*+\d.]+/, ''))
+      if (stripped === anchorText) { targetLine = i; break }
+    }
+
+    if (targetLine === -1) return
+
+    const raw  = lines[targetLine]
+    let prefix = ''
+    if (raw.startsWith('#')) {
+      const m = raw.match(/^(#+\s*)/)
+      prefix = m ? m[1] : ''
+    } else {
+      const m = raw.match(/^([\s\-*+\d.]+)/)
+      prefix = m ? m[1] : ''
+    }
+
+    const newLines  = newText.split('\n')
+    const indent    = raw.startsWith('#') ? '' : ' '.repeat(prefix.length)
+    const insertion = [
+      prefix + newLines[0],
+      ...newLines.slice(1).map(l => indent + l),
+    ]
+    lines.splice(targetLine + 1, 0, ...insertion)
+
+    const newContent = lines.join('\n')
+    textarea.value       = newContent
+    state.currentContent = newContent
+    if (state.currentFile) saveEdit(state.currentFile.name, newContent)
+    autoResize(textarea, wrap)
+    updateStats(newContent, stats)
+
+    const newLineIndex = targetLine + 1
+    positionBar(textarea, newLineIndex)
+
+    if (state.isEditorVisible) {
+      let charOffset = 0
+      for (let j = 0; j < newLineIndex; j++) charOffset += lines[j].length + 1
+      const charEnd = charOffset + lines[newLineIndex].length
+      textarea.focus({ preventScroll: true })
+      textarea.setSelectionRange(charEnd, charEnd)
+      const { top: topPx, height: barH } = getLineMetrics(textarea, newLineIndex)
+      const maxScroll   = Math.max(0, wrap.scrollHeight - wrap.clientHeight)
+      const scrollTarget = Math.max(0, Math.min(maxScroll, topPx - wrap.clientHeight / 4 + barH / 2))
+      wrap.scrollTo({ top: scrollTarget, behavior: 'smooth' })
+    }
+
+    bus.emit('content:change', newContent)
+  })
+
+  // ── Mindmap inline node edit ─────────────────────────────────────────────
+  bus.on('node:edit', ({ oldText, newText }: { oldText: string; newText: string }) => {
+    const lines = textarea.value.split('\n')
+    let targetLine = -1
+
+    for (let i = 0; i < lines.length; i++) {
+      const raw      = lines[i]
+      const stripped = raw.startsWith('#')
+        ? stripInlineMarkdown(raw.replace(/^#+\s*/, ''))
+        : stripInlineMarkdown(raw.replace(/^[\s\-*+\d.]+/, ''))
+      if (stripped === oldText) { targetLine = i; break }
+    }
+
+    if (targetLine === -1) return
+
+    const raw    = lines[targetLine]
+    let prefix   = ''
+    if (raw.startsWith('#')) {
+      const m = raw.match(/^(#+\s*)/)
+      prefix = m ? m[1] : ''
+    } else {
+      const m = raw.match(/^([\s\-*+\d.]+)/)
+      prefix = m ? m[1] : ''
+    }
+
+    // Multi-line support: first line keeps prefix; continuation lines are
+    // indented to align with the content (list items) or left as-is (headings).
+    const newLines = newText.split('\n')
+    const indent   = raw.startsWith('#') ? '' : ' '.repeat(prefix.length)
+    const replacement = [
+      prefix + newLines[0],
+      ...newLines.slice(1).map(l => indent + l),
+    ]
+    lines.splice(targetLine, 1, ...replacement)
+
+    const newContent = lines.join('\n')
+    textarea.value       = newContent
+    state.currentContent = newContent
+    if (state.currentFile) saveEdit(state.currentFile.name, newContent)
+    autoResize(textarea, wrap)
+    updateStats(newContent, stats)
+    positionBar(textarea, targetLine)
+    bus.emit('content:change', newContent)
+  })
+
+  // ── Mindmap: delete a node line (e.g. cancel a pre-created new node) ─────
+  bus.on('node:delete', (text: string) => {
+    const lines = textarea.value.split('\n')
+    const targetLine = lines.findIndex(line => {
+      const stripped = line.startsWith('#')
+        ? stripInlineMarkdown(line.replace(/^#+\s*/, ''))
+        : stripInlineMarkdown(line.replace(/^[\s\-*+\d.]+/, ''))
+      return stripped === text
+    })
+    if (targetLine === -1) return
+
+    lines.splice(targetLine, 1)
+    const newContent = lines.join('\n')
+    textarea.value       = newContent
+    state.currentContent = newContent
+    if (state.currentFile) saveEdit(state.currentFile.name, newContent)
+    autoResize(textarea, wrap)
+    updateStats(newContent, stats)
+    bus.emit('content:change', newContent)
   })
 
   // ── Resize handle ────────────────────────────────────────────────────────
