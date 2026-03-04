@@ -10,7 +10,10 @@
       "Bash(npm run build:app:*)",
       "Bash(grep:*)",
       "Bash(git commit:*)",
-      "Bash(npm publish:*)"
+      "Bash(npm publish:*)",
+      "Bash(xargs cat:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm build:*)"
     ]
   }
 }

@@ -1,5 +1,6 @@
 import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
+import { zoomTransform } from 'd3'
 import { bus, state } from '../state'
 import { saveNodeChecks, loadNodeChecks } from '../utils/storage'
 import { icon as makeIcon } from '../utils/icons'
@@ -131,6 +132,41 @@ export function initMindmap(): void {
   window.addEventListener('resize', () => {
     if (mm && state.currentContent.trim()) mm.fit()
   })
+
+  // ── Cmd/Ctrl + wheel zoom (Figma-style) ──────────────────────────────────
+  // markmap's D3 zoom filter only recognises ctrlKey for wheel-zoom.
+  // On Mac, Cmd (metaKey) + wheel should also zoom.  We intercept the event,
+  // cancel the default pan handler, and programmatically drive the D3 zoom.
+  const isMac = typeof navigator !== 'undefined' && navigator.userAgent.includes('Macintosh')
+  ;(svg as unknown as SVGElement).addEventListener('wheel', (e: WheelEvent) => {
+    if (!mm) return
+    const wantZoom = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey
+    if (!wantZoom) return
+
+    e.preventDefault()
+    e.stopPropagation()
+
+    const svgEl   = svg as unknown as SVGElement
+    const rect    = svgEl.getBoundingClientRect()
+    // Mouse position relative to SVG top-left
+    const mouseX  = e.clientX - rect.left
+    const mouseY  = e.clientY - rect.top
+
+    // Zoom factor: positive deltaY → zoom out, negative → zoom in
+    const factor  = Math.pow(1.002, -e.deltaY)
+
+    // Read current transform via D3, apply scale at mouse position
+    // D3's translate() works in SVG-space (scaled by k), so we must
+    // convert screen coords → SVG coords for accurate zoom-at-point.
+    const currentT = zoomTransform(svgEl)
+    const [svgX, svgY] = currentT.invert([mouseX, mouseY])
+    const newT = currentT
+      .translate(svgX, svgY)
+      .scale(factor)
+      .translate(-svgX, -svgY)
+
+    mm.svg.call(mm.zoom.transform as any, newT)
+  }, { passive: false, capture: true })
 }
 
 // ── Node selection ─────────────────────────────────────────────────────────
