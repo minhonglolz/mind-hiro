@@ -4,7 +4,7 @@ import {
   saveLocalFiles, loadLocalFiles,
   saveEdit, loadEdit, clearEdit,
   loadNodeChecks,
-  renameChecks,
+  renameChecks, renameNotes,
   saveSidebarWidth, loadSidebarWidth,
   exportFileChecks, exportAllChecks, importChecks,
   type FileProgressExport, type AllProgressExport,
@@ -235,21 +235,31 @@ function computeProgress(file: MindMapFile): string {
 
     // Walk the markmap tree. If a parent is checked, all descendants count as
     // checked too — mirroring the dimming logic in applyDimming().
+    // Uses path-based keys (joined with \u001f) to match the storage format,
+    // with a fallback to legacy text keys for backward compatibility.
+    // Walk the markmap tree with sibling index so same-named siblings at the
+    // same level get distinct path keys (matching buildNodePathKey in mindmap.ts).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function walk(node: any, parentChecked: boolean): void {
+    function walk(node: any, idx: number, parentChecked: boolean, path: string[]): void {
       const nodeText = htmlToText(node.content ?? '')
       if (!nodeText) {
         // Empty node — skip it but still walk children
-        for (const child of node.children ?? []) walk(child, parentChecked)
+        const kids = node.children ?? []
+        for (let i = 0; i < kids.length; i++) walk(kids[i], i, parentChecked, path)
         return
       }
       total++
-      const isChecked = parentChecked || !!checks[nodeText]
+      const segment  = `${nodeText}\u001e${idx}`
+      const nodePath = [...path, segment]
+      const pathKey  = nodePath.join('\u001f')
+      const checkVal = checks[pathKey] ?? checks[nodeText]
+      const isChecked = parentChecked || checkVal === 'checked'
       if (isChecked) checkedCount++
-      for (const child of node.children ?? []) walk(child, isChecked)
+      const kids = node.children ?? []
+      for (let i = 0; i < kids.length; i++) walk(kids[i], i, isChecked, nodePath)
     }
 
-    walk(root, false)
+    walk(root, 0, false, [])
   } catch {
     return ''
   }
@@ -271,8 +281,9 @@ function renameLocalFile(oldName: string, newName: string): void {
   // Migrate edit draft
   const edit = loadEdit(oldName)
   if (edit !== null) { saveEdit(newName, edit); clearEdit(oldName) }
-  // Migrate checks
+  // Migrate checks and notes
   renameChecks(oldName, newName)
+  renameNotes(oldName, newName)
   const list = document.getElementById('file-list')!
   renderFiles(list, state.files, state.searchQuery)
 }

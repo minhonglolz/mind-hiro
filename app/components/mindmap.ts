@@ -2,7 +2,7 @@ import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
 import { zoomTransform } from 'd3'
 import { bus, state } from '../state'
-import { saveNodeChecks, loadNodeChecks } from '../utils/storage'
+import { saveNodeChecks, loadNodeChecks, saveNodeNotes, loadNodeNotes } from '../utils/storage'
 import { icon as makeIcon } from '../utils/icons'
 
 const transformer = new Transformer()
@@ -13,12 +13,18 @@ let currentContent = ''
 let foldAllActive = false
 let fitOnNextRender = true
 let editOverlay: HTMLDivElement | null = null
+let noteOverlay: HTMLDivElement | null = null
 let selectedDiv: HTMLElement | null = null
 let pendingSelectText: string | null = null
 let forceImmediateRender = false   // bypass 300ms debounce for new-node insertion
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let currentRoot: any = null
+let nodePathKeyMap: Map<number, string> = new Map()
 
-const CB_SIDE = 12 // checkbox square size (px)
-const CB_GAP  = 4  // gap between checkbox right edge and text left edge (px)
+const CB_SIDE   = 12 // checkbox square size (px)
+const CB_GAP    = 4  // gap between checkbox right edge and text left edge (px)
+const NOTE_SIDE = 10 // note icon size (px)
+const NOTE_GAP  = 4  // gap between note icon and checkbox
 
 export function initMindmap(): void {
   const svg = document.getElementById('mindmap-svg') as unknown as SVGSVGElement
@@ -80,8 +86,9 @@ export function initMindmap(): void {
   // Bubble-phase: node text click → select node + scroll editor
   ;(svg as unknown as SVGElement).addEventListener('click', (e: Event) => {
     const target = e.target as Element
-    // SVG checkbox rect clicks have stopPropagation — won't reach here
+    // SVG checkbox/note rect clicks have stopPropagation — won't reach here
     if (target.closest('.hiro-check-fo')) return
+    if (target.closest('.hiro-note-fo')) return
 
     const nodeEl = target.closest('.markmap-node')
     if (!nodeEl) {
@@ -102,16 +109,19 @@ export function initMindmap(): void {
     }
   })
 
-  // Deselect when clicking outside the SVG (but not on the edit overlay)
+  // Deselect when clicking outside the SVG (but not on overlays)
   document.addEventListener('click', (e: Event) => {
     const target = e.target as Element
     if (editOverlay?.contains(target)) return
+    if (noteOverlay?.contains(target)) return
+    // Close note overlay when clicking outside it
+    if (noteOverlay && !noteOverlay.contains(target)) closeNoteOverlay(true)
     if (!(svg as unknown as SVGElement).contains(target)) setSelectedNode(null)
   })
 
-  // Keyboard shortcuts for selected node (no edit overlay active)
+  // Keyboard shortcuts for selected node (no edit/note overlay active)
   document.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (!selectedDiv || !document.body.contains(selectedDiv) || editOverlay) return
+    if (!selectedDiv || !document.body.contains(selectedDiv) || editOverlay || noteOverlay) return
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
       e.preventDefault()
       startInlineEditNew(selectedDiv)
@@ -383,6 +393,7 @@ function renderContent(content: string): void {
     return
   }
   const { root } = transformer.transform(content)
+  currentRoot = root
   if (foldAllActive) applyFold(root, true, true)
   mm.setData(root)
   if (fitOnNextRender) {
@@ -407,8 +418,8 @@ function initMindmapControls(): void {
     const file = state.currentFile?.name
     if (!file) return
     const svg = document.getElementById('mindmap-svg')!
-    svg.querySelectorAll('.hiro-check-fo.hiro-cb-checked').forEach((el) => {
-      el.classList.remove('hiro-cb-checked')
+    svg.querySelectorAll('.hiro-check-fo').forEach((el) => {
+      el.classList.remove('hiro-cb-checked', 'hiro-cb-blocked')
     })
     saveNodeChecks(file, {})
     applyDimming()
@@ -431,6 +442,7 @@ function initMindmapControls(): void {
 
     // Re-transform to get a clean tree, then apply fold state
     const { root } = transformer.transform(currentContent)
+    currentRoot = root
     if (foldAllActive) applyFold(root, true, true)
     mm.setData(root)
     mm.fit()
@@ -448,26 +460,185 @@ function applyFold(node: any, fold: boolean, isRoot: boolean): void {
   for (const child of node.children ?? []) applyFold(child, fold, false)
 }
 
-// ── Node checkboxes (pure SVG) ─────────────────────────────────────────────
+// ── Node checkboxes + note icons (pure SVG) ───────────────────────────────
 //
-// A <g class="hiro-check-fo"> containing a <rect> + <polyline> is appended
-// as a SIBLING of markmap's <foreignObject>.  markmap's own DOM is untouched.
+// Checkboxes: <g class="hiro-check-fo"> with <rect> + two polylines (✓ / ✗)
+// Notes:      <g class="hiro-note-fo"> with a circle icon further to the left
+//
+// Both use path-based keys (root→node texts joined with \u001f) so same-named
+// sibling nodes don't collide.  Legacy text-only keys are read as fallback.
 //
 // pointer-events strategy:
-//   • <g>       pointer-events:none  → background clicks pass through to the
-//                                      markmap circle underneath (collapse works)
-//   • <rect>    pointer-events:auto  → the checkbox square IS clickable
-//   • <polyline> pointer-events:none → checkmark is decorative only
+//   • <g>            no pointer-events → background clicks pass through
+//   • hit area rect  pointer-events:all → responds to clicks on empty fill
+//   • visual rects/polylines  pointer-events:none → decorative only
 //
 // This avoids the foreignObject "width:100% = viewport width" bug that was
 // blocking all circle clicks.
+
+/** Extract plain text from an HTML string. */
+function htmlToText(html: string): string {
+  const el = document.createElement('div')
+  el.innerHTML = html
+  return el.textContent?.trim() ?? ''
+}
+
+/**
+ * Pre-traverse the markmap tree (where children ARE available) and build a
+ * Map<state.id, pathKey> so same-named siblings at the same level get unique
+ * keys.  Must be called after mm.setData(root) assigns state.id values.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildPathKeyMap(node: any, idx: number, parentPath: string[]): void {
+  const text = node.content ? htmlToText(node.content) : ''
+  const children: any[] = node.children ?? []
+  if (!text) {
+    // Skip empty nodes but still recurse
+    for (let i = 0; i < children.length; i++) buildPathKeyMap(children[i], i, parentPath)
+    return
+  }
+  const segment  = `${text}\u001e${idx}`
+  const nodePath = [...parentPath, segment]
+  const key      = nodePath.join('\u001f')
+  if (node.state?.id != null) nodePathKeyMap.set(node.state.id as number, key)
+  for (let i = 0; i < children.length; i++) buildPathKeyMap(children[i], i, nodePath)
+}
+
+/**
+ * Look up a node's path key from the pre-built map using its state.id.
+ * Falls back to leaf text if the map has no entry (e.g. map not yet built).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildNodePathKey(data: any): string {
+  const id = data.state?.id as number | null | undefined
+  if (id != null) {
+    const key = nodePathKeyMap.get(id)
+    if (key !== undefined) return key
+  }
+  return data.content ? htmlToText(data.content) : ''
+}
+
+/** Close the note overlay, optionally saving its content. */
+function closeNoteOverlay(save: boolean): void {
+  if (!noteOverlay) return
+  if (save) {
+    const textarea = noteOverlay.querySelector('textarea') as HTMLTextAreaElement | null
+    const cb = (noteOverlay as HTMLDivElement & { _hiroSave?: (text: string) => void })._hiroSave
+    if (textarea && cb) cb(textarea.value.trim())
+  }
+  noteOverlay.remove()
+  noteOverlay = null
+}
+
+/** Open the note popover anchored below a node's text div. */
+function openNoteOverlay(
+  anchorDiv: HTMLElement,
+  pathKey: string,
+  legacyKey: string,
+  filename: string,
+  noteG: SVGGElement,
+): void {
+  closeNoteOverlay(false)
+
+  const notes = loadNodeNotes(filename)
+  const currentNote = notes[pathKey] ?? notes[legacyKey] ?? ''
+
+  const rect = anchorDiv.getBoundingClientRect()
+
+  const overlay = document.createElement('div')
+  overlay.className = 'hiro-note-popover'
+  overlay.style.left = `${rect.left}px`
+  overlay.style.top  = `${rect.bottom + 6}px`
+
+  const label = document.createElement('div')
+  label.className = 'hiro-note-label'
+  label.textContent = '備註'
+  overlay.appendChild(label)
+
+  const textarea = document.createElement('textarea')
+  textarea.className = 'hiro-note-textarea'
+  textarea.value = currentNote
+  textarea.rows = 4
+  textarea.setAttribute('spellcheck', 'false')
+  overlay.appendChild(textarea)
+
+  const btns = document.createElement('div')
+  btns.className = 'hiro-note-btns'
+
+  const saveBtn   = document.createElement('button')
+  saveBtn.textContent = '儲存'
+  saveBtn.className = 'hiro-note-btn hiro-note-btn--save'
+
+  const clearBtn2 = document.createElement('button')
+  clearBtn2.textContent = '清除'
+  clearBtn2.className = 'hiro-note-btn'
+
+  const cancelBtn = document.createElement('button')
+  cancelBtn.textContent = '取消'
+  cancelBtn.className = 'hiro-note-btn'
+
+  btns.appendChild(saveBtn)
+  btns.appendChild(clearBtn2)
+  btns.appendChild(cancelBtn)
+  overlay.appendChild(btns)
+
+  // Save callback: persist and update icon
+  const doSave = (text: string) => {
+    const fresh = loadNodeNotes(filename)
+    // Remove legacy text key if present
+    if (fresh[legacyKey] !== undefined && pathKey !== legacyKey) delete fresh[legacyKey]
+    if (text) {
+      fresh[pathKey] = text
+      noteG.classList.add('hiro-has-note')
+    } else {
+      delete fresh[pathKey]
+      noteG.classList.remove('hiro-has-note')
+    }
+    saveNodeNotes(filename, fresh)
+  }
+
+  // Attach save callback to the overlay element for closeNoteOverlay(true)
+  ;(overlay as HTMLDivElement & { _hiroSave?: (text: string) => void })._hiroSave = doSave
+
+  saveBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    doSave(textarea.value.trim())
+    closeNoteOverlay(false)
+  })
+
+  clearBtn2.addEventListener('click', (e) => {
+    e.stopPropagation()
+    textarea.value = ''
+    doSave('')
+    closeNoteOverlay(false)
+  })
+
+  cancelBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    closeNoteOverlay(false)
+  })
+
+  textarea.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeNoteOverlay(false) }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveBtn.click() }
+  })
+
+  document.body.appendChild(overlay)
+  noteOverlay = overlay
+  textarea.focus()
+}
 
 function injectCheckboxes(): void {
   const filename = state.currentFile?.name
   if (!filename) return
 
+  // Rebuild the state.id → pathKey map so same-named siblings get unique keys
+  nodePathKeyMap = new Map()
+  if (currentRoot) buildPathKeyMap(currentRoot, 0, [])
+
   const svg = document.getElementById('mindmap-svg')!
   const checks = loadNodeChecks(filename)
+  const notes  = loadNodeNotes(filename)
 
   svg.querySelectorAll('.markmap-node').forEach((nodeEl) => {
     const fo = nodeEl.querySelector('foreignObject')
@@ -502,32 +673,36 @@ function injectCheckboxes(): void {
     const nodeText = div.textContent?.trim() ?? ''
     if (!nodeText) return
 
-    const checked = !!checks[nodeText]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = (fo.parentElement as any).__data__ as any
+    const pathKey = buildNodePathKey(data)
+
+    // Read state: try path key first, fall back to legacy text key for backward compat
+    const checkVal = checks[pathKey] ?? checks[nodeText]
+    const checkState: 'checked' | 'blocked' | '' =
+      checkVal === 'checked' ? 'checked' : checkVal === 'blocked' ? 'blocked' : ''
 
     // Vertically centered with the text foreignObject
     const cy = foY + foH / 2
 
-    // Position: LEFT of text for all nodes
-    //   right-side (foX ≥ 0): between circle and text (slight overlap is fine
-    //                          because g has pointer-events:none)
-    //   left-side  (foX < 0): at the branch tip, further left than the text
-    const rectX = foX - CB_GAP - CB_SIDE
-    const rectY = cy - CB_SIDE / 2
+    // Layout (left of text):  [NOTE_ICON]  [CHECKBOX]  [node text]
+    const cbX   = foX - CB_GAP - CB_SIDE
+    const cbY   = cy  - CB_SIDE   / 2
+    const noteX = cbX - NOTE_GAP - NOTE_SIDE
+    const noteY = cy  - NOTE_SIDE / 2
 
-    // ── Outer group ──────────────────────────────────────────────────────
-    // Do NOT set pointer-events:none on <g> — in some browsers that prevents
-    // children from receiving events too. SVG <g> elements have no geometry
-    // of their own, so they don't block clicks on siblings (e.g. the circle).
+    // ── Checkbox group ────────────────────────────────────────────────────
     const checkG = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    checkG.setAttribute('class', `hiro-check-fo${checked ? ' hiro-cb-checked' : ''}`)
+    let checkClass = 'hiro-check-fo'
+    if (checkState === 'checked') checkClass += ' hiro-cb-checked'
+    else if (checkState === 'blocked') checkClass += ' hiro-cb-blocked'
+    checkG.setAttribute('class', checkClass)
 
-    // ── Invisible hit area (larger than visual for easier clicking) ───────
-    // pointer-events="all" makes the full rect area respond to clicks even
-    // though fill is none (SVG default only hit-tests painted/visible areas).
+    // Invisible hit area (larger than visual for easier clicking)
     const hitPad = 4
     const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-    hitArea.setAttribute('x', String(rectX - hitPad))
-    hitArea.setAttribute('y', String(rectY - hitPad))
+    hitArea.setAttribute('x', String(cbX - hitPad))
+    hitArea.setAttribute('y', String(cbY - hitPad))
     hitArea.setAttribute('width',  String(CB_SIDE + hitPad * 2))
     hitArea.setAttribute('height', String(CB_SIDE + hitPad * 2))
     hitArea.setAttribute('class', 'hiro-hit-area')
@@ -536,39 +711,120 @@ function injectCheckboxes(): void {
     hitArea.setAttribute('pointer-events', 'all')
     hitArea.style.cursor = 'pointer'
 
-    // ── Visual checkbox square ────────────────────────────────────────────
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-    rect.setAttribute('x', String(rectX))
-    rect.setAttribute('y', String(rectY))
-    rect.setAttribute('width',  String(CB_SIDE))
-    rect.setAttribute('height', String(CB_SIDE))
-    rect.setAttribute('rx', '2')
-    rect.setAttribute('pointer-events', 'none') // visual only; hitArea handles clicks
+    // Visual checkbox square
+    const cbRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    cbRect.setAttribute('x', String(cbX))
+    cbRect.setAttribute('y', String(cbY))
+    cbRect.setAttribute('width',  String(CB_SIDE))
+    cbRect.setAttribute('height', String(CB_SIDE))
+    cbRect.setAttribute('rx', '2')
+    cbRect.setAttribute('pointer-events', 'none')
 
-    // ── Checkmark polyline ───────────────────────────────────────────────
-    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline')
-    const px = rectX + 2
-    poly.setAttribute(
-      'points',
-      `${px},${cy} ${px + 3},${cy + 3} ${px + 8},${cy - 4}`,
-    )
-    poly.setAttribute('pointer-events', 'none')
+    // Checkmark ✓ (shown when checked)
+    const polyCheck = document.createElementNS('http://www.w3.org/2000/svg', 'polyline')
+    const px = cbX + 2
+    polyCheck.setAttribute('points', `${px},${cy} ${px + 3},${cy + 3} ${px + 8},${cy - 4}`)
+    polyCheck.setAttribute('pointer-events', 'none')
+    polyCheck.setAttribute('class', 'hiro-check-mark')
+
+    // X mark ✗ (shown when blocked) — drawn as two crossing lines
+    const xG = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    xG.setAttribute('class', 'hiro-block-mark')
+    xG.setAttribute('pointer-events', 'none')
+    const xPad = 2.5
+    const x1 = cbX + xPad, y1 = cbY + xPad
+    const x2 = cbX + CB_SIDE - xPad, y2 = cbY + CB_SIDE - xPad
+    const lineA = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    lineA.setAttribute('x1', String(x1)); lineA.setAttribute('y1', String(y1))
+    lineA.setAttribute('x2', String(x2)); lineA.setAttribute('y2', String(y2))
+    const lineB = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    lineB.setAttribute('x1', String(x2)); lineB.setAttribute('y1', String(y1))
+    lineB.setAttribute('x2', String(x1)); lineB.setAttribute('y2', String(y2))
+    xG.appendChild(lineA)
+    xG.appendChild(lineB)
 
     checkG.appendChild(hitArea)
-    checkG.appendChild(rect)
-    checkG.appendChild(poly)
+    checkG.appendChild(cbRect)
+    checkG.appendChild(polyCheck)
+    checkG.appendChild(xG)
     fo.parentElement.appendChild(checkG)
 
+    hitArea.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation() })
     hitArea.addEventListener('click', (e) => {
       e.stopPropagation()
       const file = state.currentFile?.name
       if (!file) return
-      const isChecked = checkG.classList.toggle('hiro-cb-checked')
+      // Cycle: unchecked → checked → blocked → unchecked
+      const wasChecked = checkG.classList.contains('hiro-cb-checked')
+      const wasBlocked = checkG.classList.contains('hiro-cb-blocked')
+      checkG.classList.remove('hiro-cb-checked', 'hiro-cb-blocked')
       const current = loadNodeChecks(file)
-      current[nodeText] = isChecked
+      // Remove legacy text key if present
+      if (current[nodeText] !== undefined && pathKey !== nodeText) delete current[nodeText]
+      if (wasChecked) {
+        checkG.classList.add('hiro-cb-blocked')
+        current[pathKey] = 'blocked'
+      } else if (wasBlocked) {
+        delete current[pathKey]
+      } else {
+        checkG.classList.add('hiro-cb-checked')
+        current[pathKey] = 'checked'
+      }
       saveNodeChecks(file, current)
       applyDimming()
       bus.emit('checks:change')
+    })
+
+    // ── Note icon group ───────────────────────────────────────────────────
+    const hasNote = !!(notes[pathKey] ?? notes[nodeText])
+    const noteG = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    noteG.setAttribute('class', `hiro-note-fo${hasNote ? ' hiro-has-note' : ''}`)
+
+    const noteHitPad = 4
+    const noteHitArea = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    noteHitArea.setAttribute('x', String(noteX - noteHitPad))
+    noteHitArea.setAttribute('y', String(noteY - noteHitPad))
+    noteHitArea.setAttribute('width',  String(NOTE_SIDE + noteHitPad * 2))
+    noteHitArea.setAttribute('height', String(NOTE_SIDE + noteHitPad * 2))
+    noteHitArea.setAttribute('fill', 'none')
+    noteHitArea.setAttribute('stroke', 'none')
+    noteHitArea.setAttribute('pointer-events', 'all')
+    noteHitArea.style.cursor = 'pointer'
+
+    // Circle background
+    const noteCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    noteCircle.setAttribute('cx', String(noteX + NOTE_SIDE / 2))
+    noteCircle.setAttribute('cy', String(cy))
+    noteCircle.setAttribute('r',  String(NOTE_SIDE / 2))
+    noteCircle.setAttribute('pointer-events', 'none')
+    noteCircle.setAttribute('class', 'hiro-note-circle')
+
+    // Three horizontal lines inside the circle (note symbol)
+    const noteLinesG = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    noteLinesG.setAttribute('pointer-events', 'none')
+    noteLinesG.setAttribute('class', 'hiro-note-lines')
+    const ncx = noteX + NOTE_SIDE / 2
+    for (let i = 0; i < 3; i++) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      const ly = cy - 2 + i * 2
+      line.setAttribute('x1', String(ncx - 2.5))
+      line.setAttribute('y1', String(ly))
+      line.setAttribute('x2', String(ncx + 2.5))
+      line.setAttribute('y2', String(ly))
+      noteLinesG.appendChild(line)
+    }
+
+    noteG.appendChild(noteHitArea)
+    noteG.appendChild(noteCircle)
+    noteG.appendChild(noteLinesG)
+    fo.parentElement.appendChild(noteG)
+
+    noteHitArea.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation() })
+    noteHitArea.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const file = state.currentFile?.name
+      if (!file) return
+      openNoteOverlay(div, pathKey, nodeText, file, noteG as SVGGElement)
     })
   })
 
@@ -591,9 +847,9 @@ function applyDimming(): void {
   const svg = document.getElementById('mindmap-svg')
   if (!svg) return
 
-  // Build set of node IDs to dim: checked nodes + all their descendants
+  // Build set of node IDs to dim: checked/blocked nodes + all their descendants
   const dimmedIds = new Set<number>()
-  svg.querySelectorAll('.hiro-check-fo.hiro-cb-checked').forEach((checkG) => {
+  svg.querySelectorAll('.hiro-check-fo.hiro-cb-checked, .hiro-check-fo.hiro-cb-blocked').forEach((checkG) => {
     const nodeEl = checkG.closest('.markmap-node')
     if (!nodeEl) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

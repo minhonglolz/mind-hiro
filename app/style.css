@@ -854,6 +854,128 @@ body {
 .hiro-check-fo.hiro-cb-checked polyline {
   opacity: 1;
 }
+/* Checkmark shown only when checked; X shown only when blocked */
+.hiro-check-fo .hiro-check-mark { opacity: 0; transition: opacity 0.15s ease; }
+.hiro-check-fo.hiro-cb-checked .hiro-check-mark { opacity: 1; }
+.hiro-check-fo .hiro-block-mark { opacity: 0; transition: opacity 0.15s ease; }
+.hiro-check-fo.hiro-cb-blocked .hiro-block-mark { opacity: 1; }
+/* Blocked state: orange rect + X lines */
+.hiro-check-fo.hiro-cb-blocked rect:not(.hiro-hit-area) {
+  fill: #f97316;
+  stroke: #f97316;
+  opacity: 1;
+}
+.hiro-check-fo.hiro-cb-blocked .hiro-block-mark line {
+  stroke: white;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/* ── Node note icon (pure SVG circle) ─────────────────────────────────── */
+.hiro-note-fo .hiro-note-circle {
+  fill: none;
+  stroke: #777;
+  stroke-width: 1;
+  opacity: 0.3;
+  transition: opacity 0.15s ease, fill 0.15s ease, stroke 0.15s ease;
+}
+.dark .hiro-note-fo .hiro-note-circle {
+  stroke: rgba(255, 255, 255, 0.6);
+}
+.hiro-note-fo:hover .hiro-note-circle {
+  opacity: 0.7;
+}
+.hiro-note-fo.hiro-has-note .hiro-note-circle {
+  fill: #f59e0b;
+  stroke: #f59e0b;
+  opacity: 1;
+}
+.hiro-note-fo .hiro-note-lines line {
+  stroke: #777;
+  stroke-width: 0.8;
+  opacity: 0.4;
+  transition: opacity 0.15s ease, stroke 0.15s ease;
+}
+.hiro-note-fo.hiro-has-note .hiro-note-lines line {
+  stroke: white;
+  opacity: 1;
+}
+.hiro-note-fo:hover .hiro-note-lines line {
+  opacity: 0.8;
+}
+
+/* ── Note popover ─────────────────────────────────────────────────────── */
+.hiro-note-popover {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  min-width: 220px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dark .hiro-note-popover {
+  background: #1e2025;
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.hiro-note-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.hiro-note-textarea {
+  width: 100%;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: transparent;
+  color: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+.hiro-note-textarea:focus {
+  border-color: var(--hiro, #6366f1);
+}
+.dark .hiro-note-textarea {
+  border-color: rgba(255,255,255,0.15);
+}
+.hiro-note-btns {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.hiro-note-btn {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.hiro-note-btn:hover {
+  background: var(--bg-hover, rgba(0,0,0,0.06));
+}
+.hiro-note-btn--save {
+  background: var(--hiro, #6366f1);
+  border-color: var(--hiro, #6366f1);
+  color: white;
+}
+.hiro-note-btn--save:hover {
+  background: color-mix(in srgb, var(--hiro, #6366f1) 85%, black);
+}
 
 /* Checked node (and its descendants): dimming applied via JS (applyDimming())
    after D3 transitions complete, because D3's per-frame style.opacity writes

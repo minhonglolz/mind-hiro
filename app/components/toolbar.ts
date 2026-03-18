@@ -13,11 +13,11 @@ export function initToolbar(): void {
   const shareBtn        = document.getElementById('share-btn')!
   const guideBtn        = document.getElementById('guide-btn')!
 
-  // Insert Lucide icons
-  toggleEditorBtn.appendChild(icon('PanelLeft', 18))
+  // Insert Lucide icons (16 px for text+icon buttons, 18 px for icon-only)
+  toggleEditorBtn.appendChild(icon('PanelLeft', 16))
+  shareBtn.appendChild(icon('Link', 16))
+  guideBtn.appendChild(icon('BookOpen', 16))
   themeBtn.appendChild(icon(state.theme === 'dark' ? 'Sun' : 'Moon', 18))
-  shareBtn.appendChild(icon('Share2', 18))
-  guideBtn.appendChild(icon('BookOpen', 18))
 
   // Search
   searchInput.addEventListener('input', () => {
@@ -37,8 +37,12 @@ export function initToolbar(): void {
     const url = buildFileShareURL(state.currentFile, state.currentContent, isLocal)
     navigator.clipboard.writeText(url).then(
       () => {
+        shareBtn.querySelector('svg')?.replaceWith(icon('Check', 16))
         shareBtn.style.color = 'var(--hiro)'
-        setTimeout(() => { shareBtn.style.color = '' }, 2000)
+        setTimeout(() => {
+          shareBtn.querySelector('svg')?.replaceWith(icon('Link', 16))
+          shareBtn.style.color = ''
+        }, 2000)
       },
       () => { window.history.replaceState(null, '', url) }
     )

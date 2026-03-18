@@ -8,9 +8,10 @@ import {
   Plus,
   Trash2,
   Settings,
-  Share2,
+  Link,
   BookOpen,
   PanelLeft,
+  Check,
   Download,
   FolderInput,
   SquareX,
@@ -27,9 +28,10 @@ const iconMap = {
   Plus,
   Trash2,
   Settings,
-  Share2,
+  Link,
   BookOpen,
   PanelLeft,
+  Check,
   Download,
   FolderInput,
   SquareX,
@@ -39,7 +41,7 @@ const iconMap = {
 
 export type IconName = keyof typeof iconMap
 
-export function icon(name: IconName, size = 16): SVGSVGElement {
+export function icon(name: IconName, size = 16): SVGElement {
   const el = createElement(iconMap[name])
   el.setAttribute('width', String(size))
   el.setAttribute('height', String(size))

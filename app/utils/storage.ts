@@ -2,6 +2,7 @@ const EDIT_PREFIX = 'mind-hiro:edit:'
 const THEME_KEY = 'mind-hiro:theme'
 const LOCAL_FILES_KEY = 'mind-hiro:local-files'
 const CHECKS_PREFIX = 'mind-hiro:checks:'
+const NOTES_PREFIX = 'mind-hiro:notes:'
 const SIDEBAR_WIDTH_KEY = 'mind-hiro:sidebar-width'
 
 export interface StoredFile { name: string; content: string }
@@ -35,16 +36,37 @@ export function clearEdit(filename: string): void {
   localStorage.removeItem(EDIT_PREFIX + filename)
 }
 
-export function saveNodeChecks(filename: string, checks: Record<string, boolean>): void {
+export function saveNodeChecks(filename: string, checks: Record<string, 'checked' | 'blocked'>): void {
   try {
     localStorage.setItem(CHECKS_PREFIX + filename, JSON.stringify(checks))
   } catch { /* quota exceeded */ }
 }
 
-export function loadNodeChecks(filename: string): Record<string, boolean> {
+export function loadNodeChecks(filename: string): Record<string, 'checked' | 'blocked'> {
   try {
     const raw = localStorage.getItem(CHECKS_PREFIX + filename)
-    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, boolean | 'checked' | 'blocked'>
+    // Normalize v1 boolean values: true → 'checked', false → skip
+    const result: Record<string, 'checked' | 'blocked'> = {}
+    for (const [key, val] of Object.entries(parsed)) {
+      if (val === true || val === 'checked') result[key] = 'checked'
+      else if (val === 'blocked') result[key] = 'blocked'
+    }
+    return result
+  } catch { return {} }
+}
+
+export function saveNodeNotes(filename: string, notes: Record<string, string>): void {
+  try {
+    localStorage.setItem(NOTES_PREFIX + filename, JSON.stringify(notes))
+  } catch { /* quota exceeded */ }
+}
+
+export function loadNodeNotes(filename: string): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(NOTES_PREFIX + filename)
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {}
   } catch { return {} }
 }
 
@@ -53,6 +75,14 @@ export function renameChecks(oldName: string, newName: string): void {
   if (data !== null) {
     try { localStorage.setItem(CHECKS_PREFIX + newName, data) } catch { /* quota */ }
     localStorage.removeItem(CHECKS_PREFIX + oldName)
+  }
+}
+
+export function renameNotes(oldName: string, newName: string): void {
+  const data = localStorage.getItem(NOTES_PREFIX + oldName)
+  if (data !== null) {
+    try { localStorage.setItem(NOTES_PREFIX + newName, data) } catch { /* quota */ }
+    localStorage.removeItem(NOTES_PREFIX + oldName)
   }
 }
 
@@ -83,29 +113,37 @@ export function loadTheme(): 'dark' | 'light' {
 // ── Progress import / export (per-file and all-files) ────────────────────
 
 export interface FileProgressExport {
-  version: '1'
+  version: '1' | '2'
   filename: string
-  checks: Record<string, boolean>
+  checks: Record<string, boolean | 'checked' | 'blocked'>
+  notes?: Record<string, string>
 }
 
 export interface AllProgressExport {
-  version: '1'
+  version: '1' | '2'
   all: true
   files: FileProgressExport[]
 }
 
 export function exportFileChecks(filename: string): FileProgressExport {
-  return { version: '1', filename, checks: loadNodeChecks(filename) }
+  return { version: '2', filename, checks: loadNodeChecks(filename), notes: loadNodeNotes(filename) }
 }
 
 export function exportAllChecks(filenames: string[]): AllProgressExport {
-  return { version: '1', all: true, files: filenames.map((n) => exportFileChecks(n)) }
+  return { version: '2', all: true, files: filenames.map((n) => exportFileChecks(n)) }
 }
 
 export function importFileChecks(data: FileProgressExport): void {
-  if (data.version !== '1' || typeof data.checks !== 'object' || !data.filename)
+  if ((data.version !== '1' && data.version !== '2') || typeof data.checks !== 'object' || !data.filename)
     throw new Error('Invalid progress file')
-  saveNodeChecks(data.filename, data.checks)
+  // Normalize v1 boolean values: true → 'checked', false → skip
+  const checks: Record<string, 'checked' | 'blocked'> = {}
+  for (const [key, val] of Object.entries(data.checks)) {
+    if (val === true || val === 'checked') checks[key] = 'checked'
+    else if (val === 'blocked') checks[key] = 'blocked'
+  }
+  saveNodeChecks(data.filename, checks)
+  if (data.notes) saveNodeNotes(data.filename, data.notes)
 }
 
 export function importChecks(data: FileProgressExport | AllProgressExport): void {
