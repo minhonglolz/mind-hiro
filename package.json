@@ -1,6 +1,6 @@
 {
   "name": "mind-hiro",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "Generate a self-contained interactive mind-map website from Markdown files",
   "type": "module",
   "packageManager": "pnpm@10.24.0",
