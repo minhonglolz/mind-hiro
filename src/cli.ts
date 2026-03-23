@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readdirSync, readFileSync, writeFileSync, statSync } from 'fs'
-import { join, extname, basename, resolve } from 'path'
+import { join, extname, basename, resolve, relative } from 'path'
 import { generate } from './generator.js'
 import type { MindMapFile } from '../shared/types.js'
 
@@ -12,18 +12,22 @@ function printHelp(): void {
     mind-hiro generate <dir> [options]
 
   Options:
-    -o, --output <file>   Output HTML file path (default: mind-hiro.html)
-    -r, --recursive       Scan subdirectories recursively
-    -h, --help            Show this help message
+    -o, --output <file>      Output HTML file path (default: mind-hiro.html)
+    -r, --recursive          Scan subdirectories recursively
+    --ignore <folder,...>    Comma-separated folder names to exclude (e.g. draft,_private)
+    -h, --help               Show this help message
 
   Examples:
     mind-hiro generate ./docs -o site.html
     mind-hiro generate ./notes -r -o notes.html
+    mind-hiro generate ./docs -r --ignore draft,_private
 `)
 }
 
-function collectFiles(dir: string, recursive: boolean): MindMapFile[] {
+function collectFiles(dir: string, recursive: boolean, ignore: string[]): MindMapFile[] {
+  const root = resolve(dir)
   const files: MindMapFile[] = []
+  const ignoreSet = new Set(ignore)
 
   function scan(currentDir: string): void {
     let entries: string[]
@@ -42,16 +46,19 @@ function collectFiles(dir: string, recursive: boolean): MindMapFile[] {
       const stat = statSync(fullPath)
 
       if (stat.isDirectory()) {
-        if (recursive) scan(fullPath)
+        if (recursive && !ignoreSet.has(entry)) scan(fullPath)
       } else if (extname(entry).toLowerCase() === '.md') {
         const content = readFileSync(fullPath, 'utf-8')
         const name = basename(entry, '.md')
-        files.push({ name, content })
+        // Record relative subfolder path (empty string for root-level files)
+        const relDir = relative(root, currentDir).replace(/\\/g, '/')
+        const file: MindMapFile = relDir ? { name, content, folder: relDir } : { name, content }
+        files.push(file)
       }
     }
   }
 
-  scan(resolve(dir))
+  scan(root)
   return files
 }
 
@@ -81,6 +88,7 @@ function run(): void {
   const dir = rest[0]
   let output = 'mind-hiro.html'
   let recursive = false
+  let ignore: string[] = []
 
   for (let i = 1; i < rest.length; i++) {
     const flag = rest[i]
@@ -93,6 +101,13 @@ function run(): void {
       output = next
     } else if (flag === '-r' || flag === '--recursive') {
       recursive = true
+    } else if (flag === '--ignore') {
+      const next = rest[++i]
+      if (!next) {
+        console.error('Error: --ignore requires a comma-separated list of folder names')
+        process.exit(1)
+      }
+      ignore = next.split(',').map((s) => s.trim()).filter(Boolean)
     } else if (flag === '-h' || flag === '--help') {
       printHelp()
       process.exit(0)
@@ -103,8 +118,9 @@ function run(): void {
     }
   }
 
-  console.log(`Scanning ${dir}${recursive ? ' (recursive)' : ''}...`)
-  const files = collectFiles(dir, recursive)
+  const ignoreLabel = ignore.length ? `, ignoring: ${ignore.join(', ')}` : ''
+  console.log(`Scanning ${dir}${recursive ? ' (recursive)' : ''}${ignoreLabel}...`)
+  const files = collectFiles(dir, recursive, ignore)
 
   if (files.length === 0) {
     console.warn('Warning: No .md files found in the specified directory')

@@ -13,9 +13,14 @@ Powered by [markmap](https://markmap.js.org/) + [Vite](https://vitejs.dev/).
 - **Live editing** — edit Markdown in the browser; mind map updates in real time
 - **Full-text search** — filter files by filename or content
 - **File management** — upload `.md` files, create new files, rename (double-click), delete
-- **Node checkboxes** — tick any mind-map node to mark it done; checked nodes and their subtrees dim automatically
+- **Folder grouping** — use `-r` with the CLI to auto-group files by subdirectory; collapse/expand per folder, state persisted
+- **Pin files** — pin any file to keep it at the top of the sidebar; state persisted across sessions
+- **Node checkboxes** — tick any node to mark it done (green ✓); tick again to mark as blocked (red ✗); third click resets
+- **Block state** — blocked nodes are excluded from the completion percentage; blocked nodes and their subtrees dim automatically
+- **Node notes** — add a freeform note to any node via the circle icon; icon turns gold when a note is present
 - **Progress tracking** — completion percentage displayed next to each file in the sidebar
-- **Progress export / import** — save check state to JSON (current file or all files); import auto-detects format
+- **Progress export / import** — save check/block/note state to JSON (current file or all files); import auto-detects format
+- **Zoom** — scroll-wheel zoom and drag-to-pan on the mind map
 - **Fold / unfold** — collapse or expand all mind-map nodes with one click
 - **Share links** — compress the current file into a URL and copy to clipboard
 - **Dark / light mode** — toggled via toolbar or `⌘T`, persisted to `localStorage`
@@ -86,8 +91,9 @@ writeFileSync('output.html', html)
 
 ```ts
 interface MindMapFile {
-  name: string     // Shown in the sidebar
-  content: string  // Raw Markdown content
+  name: string      // Shown in the sidebar
+  content: string   // Raw Markdown content
+  folder?: string   // Relative subfolder path, e.g. 'sprint1' or 'sprint1/backend'
 }
 ```
 

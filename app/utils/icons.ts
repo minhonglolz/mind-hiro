@@ -17,6 +17,10 @@ import {
   SquareX,
   ChevronsUp,
   ChevronsDown,
+  Pin,
+  PinOff,
+  Folder,
+  ChevronDown,
 } from 'lucide'
 
 const iconMap = {
@@ -37,6 +41,10 @@ const iconMap = {
   SquareX,
   ChevronsUp,
   ChevronsDown,
+  Pin,
+  PinOff,
+  Folder,
+  ChevronDown,
 } as const
 
 export type IconName = keyof typeof iconMap

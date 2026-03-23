@@ -4,6 +4,8 @@ const LOCAL_FILES_KEY = 'mind-hiro:local-files'
 const CHECKS_PREFIX = 'mind-hiro:checks:'
 const NOTES_PREFIX = 'mind-hiro:notes:'
 const SIDEBAR_WIDTH_KEY = 'mind-hiro:sidebar-width'
+const PINNED_KEY = 'mind-hiro:pinned'
+const FOLDER_STATE_KEY = 'mind-hiro:folder-state'
 
 export interface StoredFile { name: string; content: string }
 
@@ -84,6 +86,28 @@ export function renameNotes(oldName: string, newName: string): void {
     try { localStorage.setItem(NOTES_PREFIX + newName, data) } catch { /* quota */ }
     localStorage.removeItem(NOTES_PREFIX + oldName)
   }
+}
+
+export function savePinnedFiles(pins: string[]): void {
+  try { localStorage.setItem(PINNED_KEY, JSON.stringify(pins)) } catch { /* quota */ }
+}
+
+export function loadPinnedFiles(): string[] {
+  try {
+    const raw = localStorage.getItem(PINNED_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch { return [] }
+}
+
+export function saveFolderState(state: Record<string, boolean>): void {
+  try { localStorage.setItem(FOLDER_STATE_KEY, JSON.stringify(state)) } catch { /* quota */ }
+}
+
+export function loadFolderState(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(FOLDER_STATE_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
+  } catch { return {} }
 }
 
 export function saveSidebarWidth(w: number): void {

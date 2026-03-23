@@ -6,6 +6,8 @@ import {
   loadNodeChecks,
   renameChecks, renameNotes,
   saveSidebarWidth, loadSidebarWidth,
+  savePinnedFiles, loadPinnedFiles,
+  saveFolderState, loadFolderState,
   exportFileChecks, exportAllChecks, importChecks,
   type FileProgressExport, type AllProgressExport,
 } from '../utils/storage'
@@ -458,89 +460,202 @@ function doImport(): void {
   }
 }
 
+/** Build a single file-item <li> element. */
+function makeFileItem(
+  file: MindMapFile,
+  localNames: Set<string>,
+  pinnedNames: Set<string>,
+  isMatch: boolean,
+  list: HTMLElement,
+): HTMLLIElement {
+  const li = document.createElement('li')
+  const isActive = state.currentFile?.name === file.name
+  const isPinned = pinnedNames.has(file.name)
+
+  li.className = ['file-item', isActive ? 'active' : '', isMatch && !isActive ? 'match' : '', isPinned ? 'pinned' : '']
+    .filter(Boolean)
+    .join(' ')
+
+  const iconSpan = document.createElement('span')
+  iconSpan.className = 'file-icon'
+  iconSpan.appendChild(makeIcon('FileText', 13))
+
+  const nameSpan = document.createElement('span')
+  nameSpan.className = 'file-name'
+  nameSpan.textContent = file.name
+
+  const progressSpan = document.createElement('span')
+  progressSpan.className = 'file-progress'
+  progressSpan.textContent = computeProgress(file)
+
+  li.appendChild(iconSpan)
+  li.appendChild(nameSpan)
+  li.appendChild(progressSpan)
+
+  // Pin button — shown on hover (or always when pinned)
+  const pinBtn = document.createElement('button')
+  pinBtn.className = 'pin-btn'
+  pinBtn.title = isPinned ? 'Unpin' : 'Pin to top'
+  pinBtn.appendChild(makeIcon(isPinned ? 'PinOff' : 'Pin', 12))
+  pinBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const pins = loadPinnedFiles()
+    if (isPinned) {
+      savePinnedFiles(pins.filter((n) => n !== file.name))
+    } else {
+      savePinnedFiles([...pins, file.name])
+    }
+    renderFiles(list, state.files, state.searchQuery)
+  })
+  li.appendChild(pinBtn)
+
+  if (localNames.has(file.name)) {
+    nameSpan.addEventListener('dblclick', (e) => {
+      e.stopPropagation()
+      startRename(li, file, nameSpan)
+    })
+
+    const btn = document.createElement('button')
+    btn.className = 'delete-btn'
+    btn.title = 'Delete file'
+    btn.appendChild(makeIcon('Trash2', 12))
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      deleteLocalFile(file.name)
+    })
+    li.appendChild(btn)
+  }
+
+  li.addEventListener('click', () => {
+    if (state.currentFile?.name === file.name) return
+    state.currentFile = file
+    bus.emit('file:select', file)
+  })
+
+  return li
+}
+
 function renderFiles(list: HTMLElement, files: MindMapFile[], query: string): void {
-  const localNames = new Set(localFiles.map((f) => f.name))
+  const localNames  = new Set(localFiles.map((f) => f.name))
+  const pinnedNames = new Set(loadPinnedFiles())
+  const folderState = loadFolderState()
 
   // Keep any active new-file input while re-rendering
   const existingInput = list.querySelector('.new-file-row')
 
   const q = query.toLowerCase().trim()
 
-  const filtered = q
-    ? files.filter(
-        (f) =>
-          f.name.toLowerCase().includes(q) ||
-          f.content.toLowerCase().includes(q)
-      )
-    : files
-
   list.innerHTML = ''
-
-  // Re-insert pill (must stay in the list; sits behind items via z-index)
   list.prepend(pill)
-
-  // Re-insert the new-file input at the top if it was open
   if (existingInput) list.insertBefore(existingInput, pill.nextSibling)
 
-  if (filtered.length === 0) {
-    const empty = document.createElement('li')
-    empty.className = 'file-list-empty'
-    empty.textContent = q ? 'No matching files' : 'No files loaded'
-    list.appendChild(empty)
+  // ── Search mode: flatten everything, no folder grouping ─────────────────
+  if (q) {
+    const matched = files.filter(
+      (f) => f.name.toLowerCase().includes(q) || f.content.toLowerCase().includes(q)
+    )
+    const sorted = [
+      ...matched.filter((f) => pinnedNames.has(f.name)),
+      ...matched.filter((f) => !pinnedNames.has(f.name)),
+    ]
+    if (sorted.length === 0) {
+      const empty = document.createElement('li')
+      empty.className = 'file-list-empty'
+      empty.textContent = 'No matching files'
+      list.appendChild(empty)
+    } else {
+      for (const file of sorted) {
+        const isMatch = true
+        list.appendChild(makeFileItem(file, localNames, pinnedNames, isMatch, list))
+      }
+    }
+    updatePill(list)
     return
   }
 
-  for (const file of filtered) {
-    const li = document.createElement('li')
-    const isActive = state.currentFile?.name === file.name
-    const isMatch = q && (file.name.toLowerCase().includes(q) || file.content.toLowerCase().includes(q))
+  // ── Normal mode: pinned → ungrouped → folder groups ──────────────────────
+  const pinned   = files.filter((f) =>  pinnedNames.has(f.name))
+  const unpinned = files.filter((f) => !pinnedNames.has(f.name))
 
-    li.className = ['file-item', isActive ? 'active' : '', isMatch && !isActive ? 'match' : '']
-      .filter(Boolean)
-      .join(' ')
+  const ungrouped = unpinned.filter((f) => !f.folder)
 
-    const iconSpan = document.createElement('span')
-    iconSpan.className = 'file-icon'
-    iconSpan.appendChild(makeIcon('FileText', 13))
-
-    const nameSpan = document.createElement('span')
-    nameSpan.className = 'file-name'
-    nameSpan.textContent = file.name
-
-    const progressSpan = document.createElement('span')
-    progressSpan.className = 'file-progress'
-    progressSpan.textContent = computeProgress(file)
-
-    li.appendChild(iconSpan)
-    li.appendChild(nameSpan)
-    li.appendChild(progressSpan)
-
-    if (localNames.has(file.name)) {
-      // Double-click on name → rename
-      nameSpan.addEventListener('dblclick', (e) => {
-        e.stopPropagation()
-        startRename(li, file, nameSpan)
-      })
-
-      const btn = document.createElement('button')
-      btn.className = 'delete-btn'
-      btn.title = 'Delete file'
-      btn.appendChild(makeIcon('Trash2', 12))
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation()
-        deleteLocalFile(file.name)
-      })
-      li.appendChild(btn)
+  // Collect unique folder names in encounter order
+  const folderOrder: string[] = []
+  const folderMap = new Map<string, MindMapFile[]>()
+  for (const f of unpinned) {
+    if (f.folder) {
+      if (!folderMap.has(f.folder)) {
+        folderMap.set(f.folder, [])
+        folderOrder.push(f.folder)
+      }
+      folderMap.get(f.folder)!.push(f)
     }
+  }
 
-    li.addEventListener('click', () => {
-      // Skip if already active — keeps DOM intact so dblclick rename can fire
-      if (state.currentFile?.name === file.name) return
-      state.currentFile = file
-      bus.emit('file:select', file)
+  if (pinned.length === 0 && ungrouped.length === 0 && folderMap.size === 0) {
+    const empty = document.createElement('li')
+    empty.className = 'file-list-empty'
+    empty.textContent = 'No files loaded'
+    list.appendChild(empty)
+    updatePill(list)
+    return
+  }
+
+  // Pinned files (flat, always at top)
+  for (const file of pinned) {
+    list.appendChild(makeFileItem(file, localNames, pinnedNames, false, list))
+  }
+
+  // Ungrouped files
+  for (const file of ungrouped) {
+    list.appendChild(makeFileItem(file, localNames, pinnedNames, false, list))
+  }
+
+  // Folder groups
+  for (const folder of folderOrder) {
+    const groupFiles = folderMap.get(folder)!
+    const isOpen = folderState[folder] !== false // default open
+
+    const groupLi = document.createElement('li')
+    groupLi.className = `folder-group ${isOpen ? 'open' : 'closed'}`
+
+    const header = document.createElement('div')
+    header.className = 'folder-header'
+
+    const folderIconEl = document.createElement('span')
+    folderIconEl.className = 'folder-icon'
+    folderIconEl.appendChild(makeIcon('Folder', 13))
+
+    const folderNameEl = document.createElement('span')
+    folderNameEl.className = 'folder-name'
+    folderNameEl.textContent = folder
+
+    const chevron = document.createElement('span')
+    chevron.className = 'folder-chevron'
+    chevron.appendChild(makeIcon('ChevronDown', 12))
+
+    header.appendChild(folderIconEl)
+    header.appendChild(folderNameEl)
+    header.appendChild(chevron)
+
+    header.addEventListener('click', () => {
+      const open = groupLi.classList.toggle('open')
+      groupLi.classList.toggle('closed', !open)
+      const s = loadFolderState()
+      s[folder] = open
+      saveFolderState(s)
+      updatePill(list)
     })
 
-    list.appendChild(li)
+    const body = document.createElement('ul')
+    body.className = 'folder-body'
+    for (const file of groupFiles) {
+      body.appendChild(makeFileItem(file, localNames, pinnedNames, false, list))
+    }
+
+    groupLi.appendChild(header)
+    groupLi.appendChild(body)
+    list.appendChild(groupLi)
   }
 
   updatePill(list)
@@ -555,25 +670,31 @@ function updatePill(list: HTMLElement): void {
     return
   }
 
-  const { offsetTop, offsetLeft, offsetWidth, offsetHeight } = activeItem
+  // Use getBoundingClientRect so nested items (inside folder groups) position correctly
+  const listRect = list.getBoundingClientRect()
+  const itemRect = activeItem.getBoundingClientRect()
+  const top    = itemRect.top  - listRect.top  + list.scrollTop
+  const left   = itemRect.left - listRect.left
+  const width  = itemRect.width
+  const height = itemRect.height
 
   if (!pillReady) {
     // First appearance: snap into place with no animation
     pill.style.transition = 'none'
-    pill.style.top    = `${offsetTop}px`
-    pill.style.left   = `${offsetLeft}px`
-    pill.style.width  = `${offsetWidth}px`
-    pill.style.height = `${offsetHeight}px`
+    pill.style.top    = `${top}px`
+    pill.style.left   = `${left}px`
+    pill.style.width  = `${width}px`
+    pill.style.height = `${height}px`
     pill.style.opacity = '1'
     requestAnimationFrame(() => {
       pill.style.transition = ''
       pillReady = true
     })
   } else {
-    pill.style.top    = `${offsetTop}px`
-    pill.style.left   = `${offsetLeft}px`
-    pill.style.width  = `${offsetWidth}px`
-    pill.style.height = `${offsetHeight}px`
+    pill.style.top    = `${top}px`
+    pill.style.left   = `${left}px`
+    pill.style.width  = `${width}px`
+    pill.style.height = `${height}px`
     pill.style.opacity = '1'
   }
 }

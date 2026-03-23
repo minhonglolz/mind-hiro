@@ -11,6 +11,7 @@ import { initEditor } from './components/editor'
 import { initMindmap } from './components/mindmap'
 import { initCommandPalette } from './components/commandpalette'
 
+
 export const GUIDE_FILE: MindMapFile = {
   name: '使用指南',
   content: `# Mind Hiro 使用指南
@@ -29,6 +30,17 @@ export const GUIDE_FILE: MindMapFile = {
 #### 檔案右側顯示節點打勾完成百分比
 #### 上傳與新增的檔案儲存於瀏覽器本地
 
+### 釘選
+#### 滑鼠移到檔案項目上，點擊釘選圖示
+#### 釘選的檔案置頂顯示，圖示呈主題色
+#### 再次點擊取消釘選，釘選狀態跨 Session 保存
+
+### 資料夾
+#### 使用 CLI 以 -r 掃描子目錄時自動產生資料夾分組
+#### 點擊資料夾標題可收折 / 展開，狀態跨 Session 保存
+#### 搜尋時自動攤平所有分組，不受資料夾影響
+#### 釘選的檔案永遠置頂，不受資料夾分組限制
+
 ### 編輯器
 #### 直接編輯 Markdown 文字
 #### 修改即時反映在右側心智圖
@@ -41,12 +53,11 @@ export const GUIDE_FILE: MindMapFile = {
 #### 滾輪縮放、拖動平移
 #### 點擊節點圓點可折疊與展開子樹
 #### 點擊節點文字可跳轉至編輯器對應行
-#### 節點左側 Checkbox 可打勾標記完成
-#### 再次點擊切換為 Block（橘色 ✗），第三次點擊取消
+#### 節點左側 Checkbox 可打勾標記完成（綠色 ✓）
+#### 再次點擊切換為 Block（紅色 ✗），第三次點擊取消
 #### Block 節點不計入完成百分比
 #### 打勾或 Block 的節點與所有子節點自動變暗
-#### 節點左側圓形圖示可新增備註
-#### 有備註的節點圖示呈金色實心
+#### 節點左側圓形圖示可新增備註，有備註時呈金色
 #### 左下 ✕ 按鈕清空所有打勾與 Block 狀態
 #### 左下 ↑↓ 按鈕收折或展開全部節點
 
@@ -67,6 +78,12 @@ export const GUIDE_FILE: MindMapFile = {
 ### 點擊工具列 Share 按鈕
 ### 本地檔案：將內容壓縮為 URL 參數一起分享
 ### 內嵌檔案：分享含檔案名稱的 URL 供對方直接開啟
+
+## CLI 使用
+
+### 安裝：npm install -g mind-hiro
+### mind-hiro generate ./docs -o site.html
+### mind-hiro generate ./docs -r -o site.html（含子目錄分組）
 `,
 }
 
@@ -106,7 +123,7 @@ function boot(): void {
       targetFileName = queryShare.name
     }
   } else {
-    // Normal load — merge guide + embedded + local
+    // Normal load — merge guide + sample + embedded + local
     const localFiles = loadLocalFiles()
     const embeddedNames = new Set(embeddedFiles.map((f) => f.name))
     embeddedNames.add(GUIDE_FILE.name)

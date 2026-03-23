@@ -535,6 +535,119 @@ body {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/* Pin button — shown on hover, or always when file is pinned */
+.pin-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--label-3);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.1s, background 0.1s;
+}
+
+.pin-btn svg {
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.file-item:hover .pin-btn,
+.file-item.pinned .pin-btn {
+  display: flex;
+}
+
+.file-item.pinned .pin-btn {
+  color: var(--hiro);
+}
+
+.pin-btn:hover {
+  color: var(--hiro);
+  background: var(--hiro-soft);
+}
+
+.file-item.active .pin-btn {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.file-item.active .pin-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.file-item.active.pinned .pin-btn {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Folder group ─────────────────────────────────────────────────────── */
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--label-2);
+  cursor: pointer;
+  border-radius: 6px;
+  user-select: none;
+  transition: background 0.1s, color 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+.folder-header:hover {
+  background: var(--fill);
+  color: var(--label);
+}
+
+.folder-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+}
+
+.folder-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-chevron {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+}
+
+.folder-group.open .folder-chevron {
+  transform: rotate(0deg);
+}
+
+.folder-group.closed .folder-chevron {
+  transform: rotate(-90deg);
+}
+
+.folder-body {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 8px;
+}
+
+.folder-group.closed .folder-body {
+  display: none;
+}
+
 /* Empty list */
 .file-list-empty {
   padding: 10px 14px;
@@ -836,10 +949,10 @@ body {
 .hiro-check-fo:hover rect:not(.hiro-hit-area) {
   opacity: 0.9;
 }
-/* Checked state: higher specificity wins over the base rect:not() rule */
+/* Checked state: green */
 .hiro-check-fo.hiro-cb-checked rect:not(.hiro-hit-area) {
-  fill: var(--hiro);
-  stroke: var(--hiro);
+  fill: #22c55e;
+  stroke: #22c55e;
   opacity: 1;
 }
 .hiro-check-fo polyline {
@@ -859,10 +972,10 @@ body {
 .hiro-check-fo.hiro-cb-checked .hiro-check-mark { opacity: 1; }
 .hiro-check-fo .hiro-block-mark { opacity: 0; transition: opacity 0.15s ease; }
 .hiro-check-fo.hiro-cb-blocked .hiro-block-mark { opacity: 1; }
-/* Blocked state: orange rect + X lines */
+/* Blocked state: red rect + X lines */
 .hiro-check-fo.hiro-cb-blocked rect:not(.hiro-hit-area) {
-  fill: #f97316;
-  stroke: #f97316;
+  fill: #ef4444;
+  stroke: #ef4444;
   opacity: 1;
 }
 .hiro-check-fo.hiro-cb-blocked .hiro-block-mark line {
@@ -874,16 +987,20 @@ body {
 /* ── Node note icon (pure SVG circle) ─────────────────────────────────── */
 .hiro-note-fo .hiro-note-circle {
   fill: none;
-  stroke: #777;
+  stroke: #555;
   stroke-width: 1;
-  opacity: 0.3;
+  opacity: 0.55;
   transition: opacity 0.15s ease, fill 0.15s ease, stroke 0.15s ease;
 }
 .dark .hiro-note-fo .hiro-note-circle {
-  stroke: rgba(255, 255, 255, 0.6);
+  stroke: #fff;
+  opacity: 0.45;
 }
 .hiro-note-fo:hover .hiro-note-circle {
-  opacity: 0.7;
+  opacity: 0.85;
+}
+.dark .hiro-note-fo:hover .hiro-note-circle {
+  opacity: 0.8;
 }
 .hiro-note-fo.hiro-has-note .hiro-note-circle {
   fill: #f59e0b;
@@ -891,17 +1008,21 @@ body {
   opacity: 1;
 }
 .hiro-note-fo .hiro-note-lines line {
-  stroke: #777;
+  stroke: #555;
   stroke-width: 0.8;
-  opacity: 0.4;
+  opacity: 0.6;
   transition: opacity 0.15s ease, stroke 0.15s ease;
+}
+.dark .hiro-note-fo .hiro-note-lines line {
+  stroke: #fff;
+  opacity: 0.5;
 }
 .hiro-note-fo.hiro-has-note .hiro-note-lines line {
   stroke: white;
   opacity: 1;
 }
 .hiro-note-fo:hover .hiro-note-lines line {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 /* ── Note popover ─────────────────────────────────────────────────────── */
@@ -925,30 +1046,32 @@ body {
   box-shadow: 0 4px 16px rgba(0,0,0,0.5);
 }
 .hiro-note-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #64748b);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: #1d1d1f;
+}
+.dark .hiro-note-label {
+  color: #f0f0f3;
 }
 .hiro-note-textarea {
   width: 100%;
   resize: vertical;
   font-size: 13px;
   line-height: 1.5;
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid rgba(0,0,0,0.28);
   border-radius: 4px;
   padding: 6px 8px;
   background: transparent;
-  color: inherit;
+  color: #1d1d1f;
   outline: none;
   box-sizing: border-box;
 }
 .hiro-note-textarea:focus {
-  border-color: var(--hiro, #6366f1);
+  border-color: var(--hiro);
 }
 .dark .hiro-note-textarea {
-  border-color: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.35);
+  color: #f0f0f3;
 }
 .hiro-note-btns {
   display: flex;
