@@ -11,16 +11,6 @@ import { initEditor } from './components/editor'
 import { initMindmap } from './components/mindmap'
 import { initCommandPalette } from './components/commandpalette'
 
-// ── Sample files (folder grouping demo) ────────────────────────────────────
-// Simulates CLI output of `mind-hiro generate ./docs -r`.
-// Remove or replace with real content before production use.
-export const SAMPLE_FILES: MindMapFile[] = [
-  {
-    name: '購買麥當勞流程',
-    folder: 'Folder',
-    content: `# 購買麥當勞\n## 抵達門市\n### 確認營業中\n### 找好位置停車\n## 點餐\n### 查看菜單\n### 決定套餐\n#### 大麥克套餐\n#### 麥辣雞腿堡套餐\n#### 麥脆雞套餐\n### 選擇飲料\n### 選擇薯條大小\n## 付款\n### 現金付款\n### 信用卡付款\n### 行動支付\n## 取餐\n### 確認餐點內容\n### 索取醬料\n## 享用餐點\n`,
-  },
-]
 
 export const GUIDE_FILE: MindMapFile = {
   name: '使用指南',
@@ -127,9 +117,8 @@ function boot(): void {
       const localFiles = loadLocalFiles()
       const embeddedNames = new Set(embeddedFiles.map((f) => f.name))
       embeddedNames.add(GUIDE_FILE.name)
-      SAMPLE_FILES.forEach((f) => embeddedNames.add(f.name))
       const uniqueLocal = localFiles.filter((f) => !embeddedNames.has(f.name))
-      state.files = [GUIDE_FILE, ...SAMPLE_FILES, ...embeddedFiles, ...uniqueLocal]
+      state.files = [GUIDE_FILE, ...embeddedFiles, ...uniqueLocal]
       state.localFileNames = new Set(localFiles.map((f) => f.name))
       targetFileName = queryShare.name
     }
@@ -138,9 +127,8 @@ function boot(): void {
     const localFiles = loadLocalFiles()
     const embeddedNames = new Set(embeddedFiles.map((f) => f.name))
     embeddedNames.add(GUIDE_FILE.name)
-    SAMPLE_FILES.forEach((f) => embeddedNames.add(f.name))
     const uniqueLocal = localFiles.filter((f) => !embeddedNames.has(f.name))
-    state.files = [GUIDE_FILE, ...SAMPLE_FILES, ...embeddedFiles, ...uniqueLocal]
+    state.files = [GUIDE_FILE, ...embeddedFiles, ...uniqueLocal]
     state.localFileNames = new Set(localFiles.map((f) => f.name))
   }
 
