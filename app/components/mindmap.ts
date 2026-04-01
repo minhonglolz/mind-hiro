@@ -4,6 +4,7 @@ import { zoomTransform } from 'd3'
 import { bus, state } from '../state'
 import { saveNodeChecks, loadNodeChecks, saveNodeNotes, loadNodeNotes } from '../utils/storage'
 import { icon as makeIcon } from '../utils/icons'
+import { resolveImports } from '../utils/imports'
 
 const transformer = new Transformer()
 let mm: Markmap | null = null
@@ -392,7 +393,8 @@ function renderContent(content: string): void {
     mm.setData({ content: '', children: [] })
     return
   }
-  const { root } = transformer.transform(content)
+  const resolved = resolveImports(content, state.files, state.currentFile?.name ?? '', state.config)
+  const { root } = transformer.transform(resolved)
   currentRoot = root
   if (foldAllActive) applyFold(root, true, true)
   mm.setData(root)

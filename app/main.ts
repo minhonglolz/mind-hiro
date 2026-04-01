@@ -84,6 +84,30 @@ export const GUIDE_FILE: MindMapFile = {
 ### 安裝：npm install -g mind-hiro
 ### mind-hiro generate ./docs -o site.html
 ### mind-hiro generate ./docs -r -o site.html（含子目錄分組）
+
+## 模組引入
+
+### 語法
+#### @模組名 — 引入整個檔案的內容作為子節點
+#### @模組名.子節點名 — 只引入該檔案中特定標題的子樹
+#### @模組A > @模組B — 依序組合多個模組
+
+### 規則
+#### 引用名稱對應側邊欄的檔案名稱（不含 .md）
+#### 只有當整行內容為 @引用 時才會觸發展開
+#### 編輯器顯示原始 @語法，心智圖顯示展開後的內容
+#### 來源模組修改後，所有引用處的心智圖自動更新
+
+### 範例
+#### # 完整下單流程
+#### ## @選擇商品
+#### ## @填寫資料.收件地址
+#### ## @手機下單 > @電腦查看
+
+### 隱藏前綴（需搭配 CLI）
+#### 在掃描目錄放置 mind-hiro.config.json
+#### 設定 hidePrefix 指定不渲染到心智圖的行前綴
+#### 例如 "hidePrefix": ["!"] 讓 !備註 開頭的行不顯示
 `,
 }
 
@@ -96,6 +120,16 @@ function boot(): void {
       embeddedFiles = JSON.parse(dataEl.textContent || '[]')
     } catch {
       console.warn('[mind-hiro] Failed to parse embedded data')
+    }
+  }
+
+  // 1b. Read embedded config
+  const configEl = document.getElementById('__MIND_HIRO_CONFIG__')
+  if (configEl) {
+    try {
+      state.config = JSON.parse(configEl.textContent || '{}')
+    } catch {
+      console.warn('[mind-hiro] Failed to parse embedded config')
     }
   }
 

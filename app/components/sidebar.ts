@@ -1,5 +1,6 @@
 import { Transformer } from 'markmap-lib'
 import { bus, state } from '../state'
+import { resolveImports } from '../utils/imports'
 import {
   saveLocalFiles, loadLocalFiles,
   saveEdit, loadEdit, clearEdit,
@@ -233,7 +234,8 @@ function computeProgress(file: MindMapFile): string {
   let checkedCount = 0
 
   try {
-    const { root } = transformer.transform(content)
+    const resolved = resolveImports(content, state.files, file.name, state.config)
+    const { root } = transformer.transform(resolved)
 
     // Walk the markmap tree. If a parent is checked, all descendants count as
     // checked too — mirroring the dimming logic in applyDimming().

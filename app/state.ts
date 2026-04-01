@@ -1,4 +1,4 @@
-import type { MindMapFile } from '../shared/types'
+import type { MindMapFile, MindHiroConfig } from '../shared/types'
 
 export interface AppState {
   files: MindMapFile[]
@@ -8,6 +8,7 @@ export interface AppState {
   searchQuery: string
   isEditorVisible: boolean
   localFileNames: Set<string>
+  config: MindHiroConfig
 }
 
 type EventMap = {
@@ -62,4 +63,5 @@ export const state: AppState = {
   searchQuery: '',
   isEditorVisible: true,
   localFileNames: new Set(),
+  config: {},
 }
