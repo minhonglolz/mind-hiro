@@ -104,15 +104,14 @@ export function initSidebar(): void {
     renderFiles(list, state.files, state.searchQuery)
   })
 
-  // After editor finishes loading a file it emits content:change.
-  // Re-sync the active file's progress badge at that point (guaranteed correct).
-  // Also handles live updates while the user types.
-  bus.on('content:change', () => {
+  // After mindmap finishes rendering, update the active file's progress badge
+  // using the already-transformed root (avoids a duplicate transformer.transform() call).
+  bus.on('render:complete', ({ root }: { root: unknown }) => {
     if (!state.currentFile) return
     const activeItem = list.querySelector<HTMLElement>('.file-item.active')
     if (!activeItem) return
     const progressEl = activeItem.querySelector('.file-progress')
-    if (progressEl) progressEl.textContent = computeProgress(state.currentFile)
+    if (progressEl) progressEl.textContent = computeProgressFromRoot(state.currentFile.name, root)
   })
 
   // Checkbox toggled — update progress badge for active file only
@@ -224,30 +223,18 @@ function htmlToText(html: string): string {
   return el.textContent?.trim() ?? ''
 }
 
-function computeProgress(file: MindMapFile): string {
-  const checks  = loadNodeChecks(file.name)
-  const saved   = loadEdit(file.name)
-  const content = saved !== null ? saved : file.content
-  if (!content.trim()) return ''
-
+// Walk an already-transformed root to compute progress (no re-transform needed).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function computeProgressFromRoot(filename: string, root: any): string {
+  const checks = loadNodeChecks(filename)
   let total = 0
   let checkedCount = 0
 
   try {
-    const resolved = resolveImports(content, state.files, file.name, state.config)
-    const { root } = transformer.transform(resolved)
-
-    // Walk the markmap tree. If a parent is checked, all descendants count as
-    // checked too — mirroring the dimming logic in applyDimming().
-    // Uses path-based keys (joined with \u001f) to match the storage format,
-    // with a fallback to legacy text keys for backward compatibility.
-    // Walk the markmap tree with sibling index so same-named siblings at the
-    // same level get distinct path keys (matching buildNodePathKey in mindmap.ts).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function walk(node: any, idx: number, parentChecked: boolean, path: string[]): void {
       const nodeText = htmlToText(node.content ?? '')
       if (!nodeText) {
-        // Empty node — skip it but still walk children
         const kids = node.children ?? []
         for (let i = 0; i < kids.length; i++) walk(kids[i], i, parentChecked, path)
         return
@@ -262,7 +249,6 @@ function computeProgress(file: MindMapFile): string {
       const kids = node.children ?? []
       for (let i = 0; i < kids.length; i++) walk(kids[i], i, isChecked, nodePath)
     }
-
     walk(root, 0, false, [])
   } catch {
     return ''
@@ -270,6 +256,20 @@ function computeProgress(file: MindMapFile): string {
 
   if (total === 0) return ''
   return `${Math.floor((checkedCount / total) * 100)}%`
+}
+
+function computeProgress(file: MindMapFile): string {
+  const saved   = loadEdit(file.name)
+  const content = saved !== null ? saved : file.content
+  if (!content.trim()) return ''
+
+  try {
+    const resolved = resolveImports(content, state.files, file.name, state.config)
+    const { root } = transformer.transform(resolved)
+    return computeProgressFromRoot(file.name, root)
+  } catch {
+    return ''
+  }
 }
 
 function renameLocalFile(oldName: string, newName: string): void {

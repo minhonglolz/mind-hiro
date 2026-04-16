@@ -14,6 +14,7 @@ export interface AppState {
 type EventMap = {
   'file:select': MindMapFile
   'content:change': string
+  'render:complete': { root: unknown }
   'theme:toggle': void
   'search:change': string
   'editor:toggle': void
@@ -61,7 +62,7 @@ export const state: AppState = {
   currentContent: '',
   theme: 'light',
   searchQuery: '',
-  isEditorVisible: true,
+  isEditorVisible: false,
   localFileNames: new Set(),
   config: {},
 }

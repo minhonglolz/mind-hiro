@@ -11,6 +11,12 @@ export function initEditor(): void {
   const wrap     = document.getElementById('editor-scroll-wrap') as HTMLElement
   const stats    = document.getElementById('editor-stats')!
 
+  // Apply initial visibility from state (default: hidden)
+  const panel  = document.getElementById('editor-panel')!
+  const handle = document.getElementById('resize-handle')!
+  panel.style.display  = state.isEditorVisible ? 'flex' : 'none'
+  handle.style.display = state.isEditorVisible ? 'block' : 'none'
+
   // ── Input ────────────────────────────────────────────────────────────────
   textarea.addEventListener('input', () => {
     const content = textarea.value
@@ -42,6 +48,8 @@ export function initEditor(): void {
     const handle = document.getElementById('resize-handle')!
     panel.style.display  = state.isEditorVisible ? 'flex' : 'none'
     handle.style.display = state.isEditorVisible ? 'block' : 'none'
+    // Re-measure height when shown — autoResize() gives wrong results when hidden
+    if (state.isEditorVisible) autoResize(textarea, wrap)
   })
 
   // ── Persistent cursor bar + mindmap active-node sync ────────────────────
