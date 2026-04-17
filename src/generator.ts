@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { join, dirname } from 'path'
-import type { MindMapFile } from '../shared/types.js'
+import type { MindMapFile, MindHiroConfig } from '../shared/types.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const TEMPLATE_PATH = join(__dirname, '../../template/index.html')
@@ -15,11 +15,11 @@ function getTemplate(): string {
   return _template
 }
 
-export function generate(files: MindMapFile[]): string {
+export function generate(files: MindMapFile[], config: MindHiroConfig = {}): string {
   const template = getTemplate()
   const json = JSON.stringify(files)
-  return template.replace(
-    '>[]</script>',
-    `>${json}</script>`
-  )
+  const configJson = JSON.stringify(config)
+  return template
+    .replace('>[]</script>', `>${json}</script>`)
+    .replace('>{}</script>', `>${configJson}</script>`)
 }

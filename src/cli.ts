@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { readdirSync, readFileSync, writeFileSync, statSync } from 'fs'
+import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from 'fs'
 import { join, extname, basename, resolve, relative } from 'path'
 import { generate } from './generator.js'
-import type { MindMapFile } from '../shared/types.js'
+import type { MindMapFile, MindHiroConfig } from '../shared/types.js'
 
 function printHelp(): void {
   console.log(`
@@ -129,7 +129,19 @@ function run(): void {
 
   console.log(`Found ${files.length} file(s): ${files.map((f) => f.name).join(', ')}`)
 
-  const html = generate(files)
+  // Load optional config file
+  let config: MindHiroConfig = {}
+  const configPath = join(resolve(dir), 'mind-hiro.config.json')
+  if (existsSync(configPath)) {
+    try {
+      config = JSON.parse(readFileSync(configPath, 'utf-8'))
+      console.log(`Loaded config from mind-hiro.config.json`)
+    } catch {
+      console.warn('Warning: Failed to parse mind-hiro.config.json, using defaults')
+    }
+  }
+
+  const html = generate(files, config)
   writeFileSync(output, html, 'utf-8')
   console.log(`Generated ${output} (${Math.round(html.length / 1024)} KB)`)
 }

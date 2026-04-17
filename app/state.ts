@@ -1,4 +1,4 @@
-import type { MindMapFile } from '../shared/types'
+import type { MindMapFile, MindHiroConfig } from '../shared/types'
 
 export interface AppState {
   files: MindMapFile[]
@@ -8,11 +8,13 @@ export interface AppState {
   searchQuery: string
   isEditorVisible: boolean
   localFileNames: Set<string>
+  config: MindHiroConfig
 }
 
 type EventMap = {
   'file:select': MindMapFile
   'content:change': string
+  'render:complete': { root: unknown }
   'theme:toggle': void
   'search:change': string
   'editor:toggle': void
@@ -60,6 +62,7 @@ export const state: AppState = {
   currentContent: '',
   theme: 'light',
   searchQuery: '',
-  isEditorVisible: true,
+  isEditorVisible: false,
   localFileNames: new Set(),
+  config: {},
 }

@@ -1,14 +1,14 @@
 import { Transformer } from 'markmap-lib'
 import { Markmap } from 'markmap-view'
-import { zoomTransform } from 'd3'
+import { zoomTransform, zoomIdentity } from 'd3'
 import { bus, state } from '../state'
 import { saveNodeChecks, loadNodeChecks, saveNodeNotes, loadNodeNotes } from '../utils/storage'
 import { icon as makeIcon } from '../utils/icons'
+import { resolveImports } from '../utils/imports'
 
 const transformer = new Transformer()
 let mm: Markmap | null = null
 let renderTimer: ReturnType<typeof setTimeout> | null = null
-let dimmingTimer: ReturnType<typeof setTimeout> | null = null
 let currentContent = ''
 let foldAllActive = false
 let fitOnNextRender = true
@@ -16,7 +16,6 @@ let editOverlay: HTMLDivElement | null = null
 let noteOverlay: HTMLDivElement | null = null
 let selectedDiv: HTMLElement | null = null
 let pendingSelectText: string | null = null
-let forceImmediateRender = false   // bypass 300ms debounce for new-node insertion
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let currentRoot: any = null
 let nodePathKeyMap: Map<number, string> = new Map()
@@ -32,27 +31,47 @@ export function initMindmap(): void {
 
   mm = Markmap.create(svg)
 
-  // Re-apply dimming after every markmap render cycle (including ResizeObserver-
-  // triggered re-renders).  markmap's D3 transitions animate both `transform`
-  // (node position) and foreignObject `opacity` with the same 500 ms duration.
-  // Watching `transform` attribute changes tells us exactly when each cycle is
-  // running; 50 ms after the last mutation the opacity tween has also settled.
-  const dimObserver = new MutationObserver(() => {
-    if (dimmingTimer) clearTimeout(dimmingTimer)
-    dimmingTimer = setTimeout(() => applyDimming(), 50)
+  // ── Drag speed amplification ──────────────────────────────────────────────
+  // D3's default drag is 1:1 with mouse movement. Override the zoom handler
+  // to amplify each incremental pointer movement by DRAG_SPEED.
+  const DRAG_SPEED = 115.2
+  let prevD3T: { x: number; y: number; k: number } | null = null
+  let myT:     { x: number; y: number; k: number } | null = null
+
+  // Capture the pre-drag transform so the first mousemove is also amplified.
+  // D3 zoom uses mousedown/mousemove (not pointer events).
+  ;(svg as unknown as SVGElement).addEventListener('mousedown', () => {
+    const t = zoomTransform(svg as unknown as SVGElement)
+    prevD3T = { x: t.x, y: t.y, k: t.k }
+    myT     = { x: t.x, y: t.y, k: t.k }
   })
-  dimObserver.observe(svg as unknown as SVGElement, {
-    subtree: true, attributes: true, attributeFilter: ['transform'],
+
+  mm.zoom.on('zoom', (event: any) => {
+    const { transform } = event
+    const src = event.sourceEvent
+    if (src?.type === 'mousemove' && prevD3T && myT) {
+      const nx = myT.x + (transform.x - prevD3T.x) * DRAG_SPEED
+      const ny = myT.y + (transform.y - prevD3T.y) * DRAG_SPEED
+      const amplified = zoomIdentity.translate(nx, ny).scale(transform.k)
+      // Update D3's stored state directly so the amplified position persists
+      // across gestures without re-firing the zoom event.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(mm!.svg.node() as any).__zoom = amplified
+      mm!.g.attr('transform', amplified)
+      prevD3T = { x: transform.x, y: transform.y, k: transform.k }
+      myT     = { x: nx, y: ny, k: transform.k }
+      return
+    }
+    if (src?.type !== 'mousemove') { prevD3T = null; myT = null }
+    mm!.g.attr('transform', transform)
   })
 
   bus.on('content:change', (content: string) => {
     if (renderTimer) clearTimeout(renderTimer)
-    const delay = forceImmediateRender ? 0 : 300
-    forceImmediateRender = false
     renderTimer = setTimeout(() => {
       renderContent(content)
       placeholder.style.display = content.trim() ? 'none' : 'flex'
-    }, delay)
+    }, 0)
   })
 
   bus.on('editor:active-node', (nodeText: string) => {
@@ -89,6 +108,8 @@ export function initMindmap(): void {
     // SVG checkbox/note rect clicks have stopPropagation — won't reach here
     if (target.closest('.hiro-check-fo')) return
     if (target.closest('.hiro-note-fo')) return
+    // Collapse/expand circle — let markmap handle it, don't emit node:click
+    if (target.tagName.toLowerCase() === 'circle') return
 
     const nodeEl = target.closest('.markmap-node')
     if (!nodeEl) {
@@ -135,47 +156,51 @@ export function initMindmap(): void {
   // detect collapse/expand and re-inject checkboxes after the transition.
   ;(svg as unknown as SVGElement).addEventListener('click', (e: Event) => {
     if ((e.target as Element).tagName.toLowerCase() === 'circle') {
-      setTimeout(() => injectCheckboxes(), 600)
+      setTimeout(() => { injectCheckboxes(); applyDimming() }, 550)
     }
   }, { capture: true })
 
+  let resizeTimer: ReturnType<typeof setTimeout> | null = null
   window.addEventListener('resize', () => {
-    if (mm && state.currentContent.trim()) mm.fit()
+    if (!mm || !state.currentContent.trim()) return
+    if (resizeTimer) clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(() => mm!.fit(), 200)
   })
 
   // ── Cmd/Ctrl + wheel zoom (Figma-style) ──────────────────────────────────
   // markmap's D3 zoom filter only recognises ctrlKey for wheel-zoom.
   // On Mac, Cmd (metaKey) + wheel should also zoom.  We intercept the event,
   // cancel the default pan handler, and programmatically drive the D3 zoom.
+  const PAN_SPEED  = 4.0   // wheel-scroll pan multiplier
   const isMac = typeof navigator !== 'undefined' && navigator.userAgent.includes('Macintosh')
   ;(svg as unknown as SVGElement).addEventListener('wheel', (e: WheelEvent) => {
     if (!mm) return
     const wantZoom = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey
-    if (!wantZoom) return
 
     e.preventDefault()
     e.stopPropagation()
 
-    const svgEl   = svg as unknown as SVGElement
-    const rect    = svgEl.getBoundingClientRect()
-    // Mouse position relative to SVG top-left
-    const mouseX  = e.clientX - rect.left
-    const mouseY  = e.clientY - rect.top
+    const svgEl = svg as unknown as SVGElement
 
-    // Zoom factor: positive deltaY → zoom out, negative → zoom in
-    const factor  = Math.pow(1.002, -e.deltaY)
-
-    // Read current transform via D3, apply scale at mouse position
-    // D3's translate() works in SVG-space (scaled by k), so we must
-    // convert screen coords → SVG coords for accurate zoom-at-point.
-    const currentT = zoomTransform(svgEl)
-    const [svgX, svgY] = currentT.invert([mouseX, mouseY])
-    const newT = currentT
-      .translate(svgX, svgY)
-      .scale(factor)
-      .translate(-svgX, -svgY)
-
-    mm.svg.call(mm.zoom.transform as any, newT)
+    if (wantZoom) {
+      const rect    = svgEl.getBoundingClientRect()
+      const mouseX  = e.clientX - rect.left
+      const mouseY  = e.clientY - rect.top
+      // Zoom factor: positive deltaY → zoom out, negative → zoom in
+      const factor  = Math.pow(1.048, -e.deltaY)
+      const currentT = zoomTransform(svgEl)
+      const [svgX, svgY] = currentT.invert([mouseX, mouseY])
+      const newT = currentT
+        .translate(svgX, svgY)
+        .scale(factor)
+        .translate(-svgX, -svgY)
+      mm.svg.call(mm.zoom.transform as any, newT)
+    } else {
+      // Pan with speed multiplier (markmap's handlePan is now bypassed)
+      const s = zoomTransform(svgEl)
+      const newT = s.translate(-e.deltaX * PAN_SPEED / s.k, -e.deltaY * PAN_SPEED / s.k)
+      mm.svg.call(mm.zoom.transform as any, newT)
+    }
   }, { passive: false, capture: true })
 }
 
@@ -335,8 +360,6 @@ function startInlineEditNew(anchorDiv: HTMLElement): void {
   // Zero-width space is invisible and takes no layout width in the mindmap.
   const placeholder = '\u200B'
 
-  // Insert placeholder; 0 ms debounce so the tree updates on the next tick.
-  forceImmediateRender = true
   bus.emit('node:insert-after', { anchorText, newText: placeholder })
 
   // Show the edit overlay immediately at the anchor's position.
@@ -392,16 +415,22 @@ function renderContent(content: string): void {
     mm.setData({ content: '', children: [] })
     return
   }
-  const { root } = transformer.transform(content)
+  const resolved = resolveImports(content, state.files, state.currentFile?.name ?? '', state.config)
+  const { root } = transformer.transform(resolved)
   currentRoot = root
+  // Build pathKeyMap immediately after transform so injectCheckboxes() doesn't need to rebuild it
+  nodePathKeyMap = new Map()
+  buildPathKeyMap(root, 0, [])
   if (foldAllActive) applyFold(root, true, true)
   mm.setData(root)
   if (fitOnNextRender) {
     fitOnNextRender = false
     mm.fit()
   }
+  bus.emit('render:complete', { root })
   requestAnimationFrame(() => injectCheckboxes())
-  // applyDimming() is handled by the MutationObserver after transitions settle
+  // Apply dimming once after D3's 500ms transition has fully settled
+  setTimeout(() => applyDimming(), 550)
 }
 
 // ── Mindmap quick-action controls ─────────────────────────────────────────
@@ -632,9 +661,9 @@ function injectCheckboxes(): void {
   const filename = state.currentFile?.name
   if (!filename) return
 
-  // Rebuild the state.id → pathKey map so same-named siblings get unique keys
-  nodePathKeyMap = new Map()
-  if (currentRoot) buildPathKeyMap(currentRoot, 0, [])
+  // pathKeyMap is built in renderContent() — rebuild here only for
+  // collapse/expand calls (circle click) where root hasn't changed
+  if (nodePathKeyMap.size === 0 && currentRoot) buildPathKeyMap(currentRoot, 0, [])
 
   const svg = document.getElementById('mindmap-svg')!
   const checks = loadNodeChecks(filename)

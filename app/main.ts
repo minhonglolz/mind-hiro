@@ -42,6 +42,7 @@ export const GUIDE_FILE: MindMapFile = {
 #### 釘選的檔案永遠置頂，不受資料夾分組限制
 
 ### 編輯器
+#### 預設隱藏，點擊節點文字或工具列按鈕可開啟
 #### 直接編輯 Markdown 文字
 #### 修改即時反映在右側心智圖
 #### 拖動中間邊界可調整編輯器寬度
@@ -50,9 +51,10 @@ export const GUIDE_FILE: MindMapFile = {
 
 ### 心智圖
 #### 即時渲染 Markdown 標題層級結構
-#### 滾輪縮放、拖動平移
-#### 點擊節點圓點可折疊與展開子樹
-#### 點擊節點文字可跳轉至編輯器對應行
+#### 兩指滑動平移、Cmd/Ctrl + 滾輪縮放
+#### 三指拖動（或滑鼠拖動）快速平移
+#### 點擊節點圓點可折疊與展開子樹（不會開啟編輯器）
+#### 點擊節點文字跳轉至編輯器對應行，若編輯器隱藏則自動開啟
 #### 節點左側 Checkbox 可打勾標記完成（綠色 ✓）
 #### 再次點擊切換為 Block（紅色 ✗），第三次點擊取消
 #### Block 節點不計入完成百分比
@@ -84,6 +86,30 @@ export const GUIDE_FILE: MindMapFile = {
 ### 安裝：npm install -g mind-hiro
 ### mind-hiro generate ./docs -o site.html
 ### mind-hiro generate ./docs -r -o site.html（含子目錄分組）
+
+## 模組引入
+
+### 語法
+#### @模組名 — 引入整個檔案的內容作為子節點
+#### @模組名.子節點名 — 只引入該檔案中特定標題的子樹
+#### @模組A > @模組B — 依序組合多個模組
+
+### 規則
+#### 引用名稱對應側邊欄的檔案名稱（不含 .md）
+#### 只有當整行內容為 @引用 時才會觸發展開
+#### 編輯器顯示原始 @語法，心智圖顯示展開後的內容
+#### 來源模組修改後，所有引用處的心智圖自動更新
+
+### 範例
+#### # 完整下單流程
+#### ## @選擇商品
+#### ## @填寫資料.收件地址
+#### ## @手機下單 > @電腦查看
+
+### 隱藏前綴（需搭配 CLI）
+#### 在掃描目錄放置 mind-hiro.config.json
+#### 設定 hidePrefix 指定不渲染到心智圖的行前綴
+#### 例如 "hidePrefix": ["!"] 讓 !備註 開頭的行不顯示
 `,
 }
 
@@ -96,6 +122,16 @@ function boot(): void {
       embeddedFiles = JSON.parse(dataEl.textContent || '[]')
     } catch {
       console.warn('[mind-hiro] Failed to parse embedded data')
+    }
+  }
+
+  // 1b. Read embedded config
+  const configEl = document.getElementById('__MIND_HIRO_CONFIG__')
+  if (configEl) {
+    try {
+      state.config = JSON.parse(configEl.textContent || '{}')
+    } catch {
+      console.warn('[mind-hiro] Failed to parse embedded config')
     }
   }
 

@@ -8,7 +8,7 @@ Powered by [markmap](https://markmap.js.org/) + [Vite](https://vitejs.dev/).
 
 ## Features
 
-- **Three-panel UI** — resizable file sidebar, Markdown editor, live mind-map renderer
+- **Three-panel UI** — resizable file sidebar, Markdown editor (hidden by default), live mind-map renderer
 - **Command palette** — `⌘K` to search files and run actions (toggle theme, share, …)
 - **Live editing** — edit Markdown in the browser; mind map updates in real time
 - **Full-text search** — filter files by filename or content
@@ -20,7 +20,8 @@ Powered by [markmap](https://markmap.js.org/) + [Vite](https://vitejs.dev/).
 - **Node notes** — add a freeform note to any node via the circle icon; icon turns gold when a note is present
 - **Progress tracking** — completion percentage displayed next to each file in the sidebar
 - **Progress export / import** — save check/block/note state to JSON (current file or all files); import auto-detects format
-- **Zoom** — scroll-wheel zoom and drag-to-pan on the mind map
+- **Navigation** — click any node text to jump to that line in the editor (opens editor if hidden); click the collapse circle to fold/unfold without opening the editor
+- **Zoom & pan** — two-finger scroll to pan, `⌘/Ctrl` + scroll to zoom, three-finger drag (or mouse drag) for fast panning
 - **Fold / unfold** — collapse or expand all mind-map nodes with one click
 - **Share links** — compress the current file into a URL and copy to clipboard
 - **Dark / light mode** — toggled via toolbar or `⌘T`, persisted to `localStorage`
