@@ -17,8 +17,11 @@ function getTemplate(): string {
 
 export function generate(files: MindMapFile[], config: MindHiroConfig = {}): string {
   const template = getTemplate()
-  const json = JSON.stringify(files)
-  const configJson = JSON.stringify(config)
+  // Escape </ so that strings like </script> in Markdown content don't
+  // terminate the <script type="application/json"> tag prematurely.
+  const escape = (s: string) => s.replace(/<\//g, '<\\/')
+  const json = escape(JSON.stringify(files))
+  const configJson = escape(JSON.stringify(config))
   return template
     .replace('>[]</script>', `>${json}</script>`)
     .replace('>{}</script>', `>${configJson}</script>`)
